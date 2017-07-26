@@ -1,0 +1,41 @@
+<style><!--
+body
+{
+	background-color: black;
+	color: #00FF00;
+}
+A:link
+{
+	color: #319CFF;
+}
+A:visited
+{
+	color: #D131FF;
+}
+.Title
+{
+	text-decoration: underline;
+	font-weight: bold;
+	font-size: 200%;
+}
+.Heading1, .Heading
+{
+	text-decoration: underline;
+	font-weight: bold;
+	font-size: 150%;
+}
+.NewsSubHeading
+{
+	font-weight: bold;
+	font-size: 125%;
+}
+.NewsBody
+{
+}
+.HistorySubHeading
+{
+	font-weight: bold;
+}
+//-->
+</style>
+

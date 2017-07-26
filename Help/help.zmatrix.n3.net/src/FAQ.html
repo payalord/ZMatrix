@@ -1,0 +1,146 @@
+<html>
+
+<meta name="keywords"
+content="FAQ,frequently asked questions" />
+<meta name="description"
+content="Frequently Asked Questions regarding the ZMatrix program." />
+
+
+<head>
+<title>ZMatrix FAQ</title>
+</head>
+
+
+<body>
+
+<p class="Introduction">This section provides answers to the most commonly asked questions regarding ZMatrix.
+</p>
+
+
+<p class="Question">How do I get ZMatrix to blend with a picture like this:
+</p>
+
+<p class="Image" align="center">
+	<img src="PATH_TO_ROOT/images/FAQ/BlendAfter.jpg" align="center">
+</p>
+<p class="Caption" align="center">
+	Example Of Blended Image
+</p>
+
+<p class="Answer">ZMatrix is designed to be able to blend with your CURRENT DESKTOP WALLPAPER.&nbsp;
+If you want ZMatrix to blend with an image, you must make sure you have set an image as your desktop
+wallpaper first.&nbsp; For instructions on setting your desktop wallpaper, see the documentation for
+your version of Windows.&nbsp; For some images to use as wallpaper to blend with ZMatrix, see the
+'Wallpaper Gallery' section of the <a href="HOMEPAGE_URL" target="_blank">ZMatrix website</a>.
+</p>
+
+<p class="Image" align="center">
+	<img src="PATH_TO_ROOT/images/FAQ/BlendBefore.jpg" align="center">
+</p>
+<p class="Caption" align="center">
+	Example Of Desktop With Wallpaper
+</p>
+
+<p class="Answer">Once the wallpaper you want ZMatrix to blend with has been set as your desktop wallpaper,
+you must start ZMatrix, and ensure that the blend settings within ZMatrix permit it to blend with the
+desktop wallpaper.&nbsp; For information on how to launch/navigate the Configuration Dialog within ZMatrix, see
+the 'Right Click Context Menu' and 'Configuration' sections of the help documentation.&nbsp; Once the configuration
+dialog is launched, set the Background Opacity to 'Transparent', the Background Mode to 'Bitmap', and the
+Background Blending to 'OR' as shown in the screenshot below.
+</p>
+
+<p class="Image" align="center">
+	<img src="PATH_TO_ROOT/images/FAQ/BlendConfig.gif" align="center">
+</p>
+<p class="Caption" align="center">
+	Example Configuration Settings For Blending
+</p>
+
+<p class="Answer">After clicking the OK button in the Configuration Dialog, ZMatrix should now be blending with
+the wallpaper as shown below:
+</p>
+
+<p class="Image" align="center">
+	<img src="PATH_TO_ROOT/images/FAQ/BlendAfter.jpg" align="center">
+</p>
+<p class="Caption" align="center">
+	Example Of ZMatrix Blending With Desktop Wallpaper
+</p>
+
+<p class="Question">Why is ZMatrix leaving behind 'blank' areas behind windows like this?
+</p>
+
+<p class="Image" align="center">
+	<img src="PATH_TO_ROOT/images/FAQ/BlankAreas.jpg" align="center">
+</p>
+<p class="Caption" align="center">
+	Example Of 'blank' Areas Left By ZMatrix As A Window Is Dragged
+</p>
+
+<p class="Answer">This is known behaviour for ZMatrix.&nbsp; The program will not re-draw steams/characters that were
+overlapped by other windows.&nbsp; The main reason for this is that it would likely slow the program down significantly
+to have to do this re-drawing of overlapped sections, but also, I personally do not feel that this behaviour
+is all that big of a problem, and somewhat prefer the effect.
+</p>
+
+<p class="Question">Why is ZMatrix drawing over my desktop icons?
+</p>
+<p class="Answer">ZMatrix should now detect new/modified desktop icons and not draw over them, but, as always,
+there are exceptions.  A 'Refresh' of ZMatrix should fix the problems, but if you are
+experiencing frequently re-ocurring problems, please report it (see the About dialog
+-- accessed from the 'About' right click menu item, or via the Help | About menu sequence in
+the configuration dialog -- for information on the methods of reporting problems).
+</p>
+
+<p class="Question">What is 'Active Desktop'?
+</p>
+<p class="Answer">Active Desktop (no longer named that in Windows XP) is the ability embedded within Windows to
+render any web content to your desktop.&nbsp; In Windows 2000, when you set a JPEG, GIF, or HTML file as
+your desktop background, Windows uses an instance of Internet Explorer to render the content on the desktop.&nbsp;
+The only content that windows is capable of displaying on the desktop without Active Desktop is BITMAP (.BMP) files.&nbsp;
+Windows XP on the other hand, will transparently convert any JPEG or GIF file you set as your background to a BITMAP,
+and use that resulting bitmap as your background, avoiding the need to use Active Desktop.&nbsp; If an HTML file is set
+as your desktop in Windows XP, it will still need to enable Active Desktop (although it doesn't call it such).&nbsp;
+ZMatrix should now co-operate with Active Desktop, but if you experience any problems with ZMatrix, it is a good idea
+to understand what Active Desktop is, because 'Is Active Desktop enabled?' may be the first question asked in any attempt to
+understand what is causing the problem.
+</p>
+
+<p class="Question">
+Why is ZMatrix blending with the wrong desktop wallpaper?
+</p>
+<p class="Answer">ZMatrix attempts to detect when the desktop wallpaper is changed, but there are scenarios in which
+it fails to detect a desktop wallpaper change.&nbsp; To remedy this, simply select the 'Refresh' menu item within the
+right click context menu for ZMatrix.&nbsp; That should force ZMatrix to update it's internal copy of the desktop wallpaper.
+</p>
+
+<p class="Question">
+Will ZMatrix work with Windows 95/98/Me?
+</p>
+<p class="Answer">ZMatrix was written from the start as a Windows 2000 (multi-user environment), Unicode application.&nbsp;
+Retro-fitting it to function under Windows 95/98/Me (which are single user, non-unicode environments) has been a difficult
+task.&nbsp; Furthermore, the Windows Shell API calls that ZMatrix depends on (such as PaintDesktop(), etc...)
+are known to be problematic in Windows 95/98/Me.&nbsp; For these reasons, I cannot ensure proper behaviour of ZMatrix in
+Windows 95/98/Me.&nbsp; I have tested under Windows 98 Second Edition, and found that most things do work properly, but
+I am unable to test under every variation of Win9x/Me with every variation of Internet Explorer (parts of the Windows API
+depend on which version of Internet Explorer you have installed -- yes, it is dumb), my recommended minimum system is
+Windows 98 with Internet Explorer 5 or later installed.
+</p>
+
+<p class="Question">
+Will ZMatrix work with Windows NT 4.0?
+</p>
+<p class="Answer">Support for Windows NT 4.0 was a late addition to ZMatrix.&nbsp; It has now been tested with NT 4.0
+with Service Pack 6.0a, the MS Desktop Update package (Active Desktop etc...), and Internet Explorer 5.5 SP2, and seems to work.&nbsp;
+The most common problem encountered in getting ZMatrix to function under NT 4.0 is the lack of the MS Desktop Update package.&nbsp;
+You can tell if you have the Desktop Update package installed if the menu displayed when you right click the desktop contains references
+to Active Desktop... If it does refer to Active Desktop, then you have the Desktop Update installed, otherwise, you do not.&nbsp;
+Microsoft installed the Desktop Update package by default with Internet Explorer 4.0, but IE 5.0+ did not offer to install
+it.&nbsp; Additional information regarding the Desktop Update package can be found at
+<a href="http://support.microsoft.com/default.aspx?scid=kb;EN-US;165695" target="_blank">this Microsoft KB article</a>.
+</p>
+
+
+</body>
+
+</html>

@@ -1,0 +1,22 @@
+
+<HR
+>
+<TABLE width="100%">
+<TR>
+
+  <TD>
+  <P class="Footer">
+    <SPAN class="HomepageTagLine">Homepage: <A class="Author" href="HOMEPAGE_URL" target="_blank">HOMEPAGE_URL</A></SPAN><BR>
+    <SPAN class="LastCompiledTagLine">Help Last Compiled: <SPAN class="DateTimeStamp"> __DATE__ __TIME__</SPAN></SPAN><BR>
+    <SPAN class="AuthorTagLine">Author: <SPAN class="Author">Z. Shaker</SPAN></SPAN><BR>
+    <SPAN class="FilePPTagLine">Preprocessed using <A href="http://www.cabaret.demon.co.uk/filepp/" target="_blank">Filepp __VERSION__.</A></SPAN></SPAN><BR>
+  </P>
+  </TD>
+
+  <TD>
+  <P class="Footer">
+    <A target="_top"><IMG src="./PATH_TO_ROOT/images/css1.png" align="right" alt="Made with CSS"></A>
+  </P>
+  </TD>
+</TR>
+</TABLE>

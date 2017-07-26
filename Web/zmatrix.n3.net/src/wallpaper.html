@@ -1,0 +1,53 @@
+<html>
+
+<!--#pragma filepp UseModule bigdef/bigdef.pm-->
+<!--#pragma filepp UseModule blc/blc.pm-->
+
+<!--#bigdef BEGIN_WALLPAPER_GALLERY()
+<table border="1" cellpadding="5">
+<!--#endbigdef-->
+
+<!--#bigdef ADD_WALLPAPER_TO_GALLERY(WallpaperName,LongDesc)
+	<tr>
+		<td>
+			<p class="WallpaperImage"><a href="./PATH_TO_ROOT/images/wallpaper/fullsize/WallpaperName.bmp">
+			<img border="0" src="./PATH_TO_ROOT/images/wallpaper/thumbs/WallpaperName.jpg" alt=WallpaperName>
+			</a></p>
+		</td>
+		<td>
+			<p class="WallpaperDesc">LongDesc</p>
+		</td>
+	</tr>
+<!--#endbigdef-->
+
+<!--#bigdef END_WALLPAPER_GALLERY()
+</table>
+<!--#endbigdef-->
+
+<head>
+<title>ZMatrix</title>
+</head>
+
+<body>
+
+<p>
+
+The following is a gallery of wallpapers that I feel blend well with ZMatrix.&nbsp; Click on the thumbnails to view a full
+sized image.
+
+</p>
+
+BEGIN_WALLPAPER_GALLERY()
+
+ADD_WALLPAPER_TO_GALLERY(DeusEx,Wallpaper from the PC game "Deus Ex" by Eidos Interactive.)
+
+ADD_WALLPAPER_TO_GALLERY(ProdigyJilted,Front cover to Prodigy\'s "Music For The Jilted Generation" album.)
+
+ADD_WALLPAPER_TO_GALLERY(SystemShock,Wallpaper from the game "System Shock". 640x480\, best when centered\, not stretched.)
+
+END_WALLPAPER_GALLERY()
+
+
+</body>
+
+</html>
