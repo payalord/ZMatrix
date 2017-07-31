@@ -324,3 +324,7 @@ __pycache__/
 *.btm.cs
 *.odx.cs
 *.xsd.cs
+
+# Other files
+*.exp
+*.scr
