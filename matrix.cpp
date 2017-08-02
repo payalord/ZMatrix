@@ -72,7 +72,7 @@ case(WM_SET_COEFF_##CoeffSuffix): \
 LRESULT CALLBACK WindowProc(HWND,UINT,WPARAM,LPARAM);
 //===========================================================================
 //===========================================================================
-int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPSTR lpszArgs, int nWinMode)
+int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, int nWinMode)
 {
 	CreateMutex(NULL, FALSE,_T("ZMatrix"));
 
@@ -334,12 +334,12 @@ static COLORREF ExpectedBGColor = GetSysColor(COLOR_DESKTOP);
 //===========================================================================
 LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 {
-	static UWM_DESKTOPREDRAW = RegisterWindowMessage(UWM_DESKTOPREDRAW_ID);
-	static UWM_DESKTOPITEMCHANGED = RegisterWindowMessage(UWM_DESKTOPITEMCHANGED_ID);
-	static UWM_DESKTOPCHILDATTACHED = RegisterWindowMessage(UWM_DESKTOPCHILDATTACHED_ID);
+	static UINT UWM_DESKTOPREDRAW = RegisterWindowMessage(UWM_DESKTOPREDRAW_ID);
+	static UINT UWM_DESKTOPITEMCHANGED = RegisterWindowMessage(UWM_DESKTOPITEMCHANGED_ID);
+	static UINT UWM_DESKTOPCHILDATTACHED = RegisterWindowMessage(UWM_DESKTOPCHILDATTACHED_ID);
 	static POINT pt;
 	static int mouseCounter = 0;
-	static mouseDelay = 2;			// how many pixels moved by the mouse to wait before killing screensaver
+	static int mouseDelay = 2;			// how many pixels moved by the mouse to wait before killing screensaver
 	static bool ScheduledRegionUpdate = false;
 
 	switch(message)

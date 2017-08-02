@@ -96,7 +96,8 @@
       <ProgramDataBaseFileName>.\Release\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>implib -a "$(TargetDir)$(TargetName)_borland.lib" "$(TargetPath)"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -139,7 +140,8 @@
       <ProgramDataBaseFileName>.\Release_Win9x\</ProgramDataBaseFileName>
     </ClCompile>
     <PostBuildEvent>
-      <Command>implib -a "$(TargetDir)$(TargetName)_borland.lib" "$(TargetPath)"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -184,7 +186,8 @@
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
     </ClCompile>
     <PostBuildEvent>
-      <Command>implib -a "$(TargetDir)$(TargetName)_borland.lib" "$(TargetPath)"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
