@@ -1,5 +1,4 @@
-ZMatrix
-=======
+# ZMatrix
 
 ZMatrix is desktop enhancement program.  It attempts to reproduce the streaming
 characters shown in the film 'The Matrix' on your computer desktop.  Besides attempting
@@ -11,25 +10,22 @@ background image, rather, it can be told to blend with it in a few different way
 
 PLEASE SEE THE HELP DOCUMENTATION FOR MORE INFO.
 
-Font
-====
+# Font
 
 ZMatrix now comes bundled with a compact Matrix-specific font created by
 e-RBi.
 
 Here is the information that came with the font:
+* e-RBi (e-rbi.com)
+* contact@e-rbi.com
 
-*snip=========================================================================
+---
 
-e-RBi (e-rbi.com)
-contact@e-rbi.com
--------------------------------------------------------------------------
+**Product Name**: Matrix Code Font  
+**Licence Type**: Freeware  
+**Platform O/S**: Windows/Mac  
 
-Product Name: Matrix Code Font
-Licence Type: Freeware
-Platform O/S: Windows/Mac
-
--------------------------------------------------------------------------
+---
 
 Additional Product Information:
 
@@ -37,33 +33,25 @@ This is a true type font which works mainly for windows but I believe
 can also work on Mac. These Matrix Code Symbols are a direct code of
 the one from the film The Matrix, there are not enough symbols to fill
 every charactor like a normal font, and so the operational ones are as
-follows:
+follows:  
 1234567890ABCDEFGHIJKLMNOPQRSUTVWXYZabcd
 
-------------------------------------------------------------------------
+---
 
-This product is freeware, feel free to distribute.
+**This product is freeware, feel free to distribute.**
 
-------------------------------------------------------------------------
+---
 
-*snip=========================================================================
-
-
-License
-=======
+# License
 
 For information on the license under which this program is distributed, see the
-LICENSE.TXT file.
+[LICENSE.TXT](LICENSE.TXT) file.
 
-Feedback/Additional Information
-===============================
+# Feedback/Additional Information
 
 Additional information can be found in the help documentation bundled with the
-program, or on the product website.
+program, or on the product [website](http://zmatrix.sourceforge.net/).
 
 For more information, or for a chance to get your 2 cents in regarding this program,
 see the About box that is accessed via the 'About' item on the right click menu, or
 via the (Help | About) menu sequence on the Configuration Dialog.
-
-
-
