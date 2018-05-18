@@ -135,6 +135,7 @@ extern HMENU gSysTrayPopup;
 extern HINSTANCE ghInstance;
 extern HWND ghWnd;
 extern HWND ghProgman;
+extern HWND WorkerW;
 extern HWND ghShellDLL;
 extern HWND ghSysListView;
 extern bool LiteStepMode;
