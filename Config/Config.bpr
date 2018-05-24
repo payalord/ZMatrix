@@ -5,7 +5,7 @@
     <VERSION value="BCB.06.00"/>
     <PROJECT value="..\Config.dll"/>
     <OBJFILES value="Config.obj ConfigForm.obj CharSetForm.obj AboutUnit.obj HireUnit.obj"/>
-    <RESFILES value="Config.res ConfigResources.res"/>
+    <RESFILES value="ConfigResources.res"/>
     <IDLFILES value=""/>
     <IDLGENFILES value=""/>
     <DEFFILE value=""/>
@@ -54,7 +54,6 @@
       <FILE FILENAME="..\zsMatrix_Borland.lib" FORMNAME="" UNITNAME="zsMatrix_Borland" CONTAINERID="LibTool" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="CharSetForm.cpp" FORMNAME="CharacterSetForm" UNITNAME="CharSetForm" CONTAINERID="CCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="AboutUnit.cpp" FORMNAME="AboutForm" UNITNAME="AboutUnit" CONTAINERID="CCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
-      <FILE FILENAME="Config.res" FORMNAME="" UNITNAME="Config" CONTAINERID="ResTool" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="ConfigResources.res" FORMNAME="" UNITNAME="ConfigResources.res" CONTAINERID="ResTool" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="HireUnit.cpp" FORMNAME="HireForm" UNITNAME="HireUnit" CONTAINERID="CCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
   </FILELIST>
