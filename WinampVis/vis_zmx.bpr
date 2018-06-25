@@ -93,6 +93,9 @@ ProductName=ZMatrix
 ProductVersion=1.5.2.0
 Comments=Winamp vis module for ZMatrix
 
+[Excluded Packages]
+c:\program files (x86)\borland\cbuilder6\Bin\dclite60.bpl=Borland Integrated Translation Environment
+
 [HistoryLists\hlIncludePath]
 Count=2
 Item0=C:\Program Files\Borland\CBuilder6\Projects;C:\Development\Projects\ZMatrix\current\WinampVis2;$(BCB)\include;$(BCB)\include\vcl
@@ -139,11 +142,6 @@ LinkCGLIB=0
 AddServerUnit=1
 AddClientUnit=1
 PrecompiledHeaders=1
-
-[Language]
-ActiveLang=
-ProjectLang=
-RootDir=
 
 [Linker]
 LibPrefix=

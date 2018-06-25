@@ -1,4 +1,4 @@
-//Microsoft Developer Studio generated resource script.
+// Microsoft Visual C++ generated resource script.
 //
 #include "resource.h"
 
@@ -13,13 +13,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// English (U.S.) resources
+// English (United States) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
-#ifdef _WIN32
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
-#endif //_WIN32
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -27,18 +25,18 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE DISCARDABLE 
+1 TEXTINCLUDE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE DISCARDABLE 
+2 TEXTINCLUDE 
 BEGIN
     "#include ""afxres.h""\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE DISCARDABLE 
+3 TEXTINCLUDE 
 BEGIN
     "\r\n"
     "\0"
@@ -54,14 +52,15 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-IDI_MATRIX_ICON         ICON    DISCARDABLE     "ZMatrix.ico"
+IDI_MATRIX_ICON         ICON                    "ZMatrix.ico"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Menu
 //
 
-ID_SYSTRAYMENU MENU DISCARDABLE 
+ID_SYSTRAYMENU MENU
 BEGIN
     POPUP "POPUP"
     BEGIN
@@ -71,24 +70,15 @@ BEGIN
         BEGIN
             MENUITEM "Auto-Start For All Users",    ID_ALL_USERS_AUTO_START
             MENUITEM "Auto-Start For Current User", ID_CURRENT_USER_AUTO_START
-
         END
         POPUP "Screen Saver Options"
         BEGIN
             MENUITEM "&Screen Save",                ID_SCREENSAVE
             MENUITEM "Set As Screen Saver",         ID_SET_AS_SCREENSAVER
-            MENUITEM "Always Set As Screen Saver While Running", 
-                                                    ID_ALWAYS_SET_AS_SCREENSAVER_WHILE_RUNNING
-
-            MENUITEM "Blend Screen Saver With Background Only", 
-                                                    ID_BLEND_SCREENSAVER_WITH_BG_ONLY
-
-            MENUITEM "Add/Edit Screen Saver Configuration...", 
-                                                    ID_EDIT_SCREEN_SAVER_CONFIG
-
-            MENUITEM "Delete Screen Saver Configuration", 
-                                                    ID_DELETE_SCREEN_SAVER_CONFIG
-
+            MENUITEM "Always Set As Screen Saver While Running", ID_ALWAYS_SET_AS_SCREENSAVER_WHILE_RUNNING
+            MENUITEM "Blend Screen Saver With Background Only", ID_BLEND_SCREENSAVER_WITH_BG_ONLY
+            MENUITEM "Add/Edit Screen Saver Configuration...", ID_EDIT_SCREEN_SAVER_CONFIG
+            MENUITEM "Delete Screen Saver Configuration", ID_DELETE_SCREEN_SAVER_CONFIG
         END
         MENUITEM "&Pause",                      ID_PAUSE
         MENUITEM "H&ire the developer",         ID_HIRE
@@ -100,15 +90,14 @@ BEGIN
 END
 
 
-#ifndef _MAC
 /////////////////////////////////////////////////////////////////////////////
 //
 // Version
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,5,2,0
- PRODUCTVERSION 1,5,2,0
+ FILEVERSION 1,5,3,0
+ PRODUCTVERSION 1,5,3,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -123,18 +112,15 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
-            VALUE "Comments", "This is the core ZMatrix component.\0"
-            VALUE "CompanyName", "Happy Dude\0"
-            VALUE "FileDescription", "matrix\0"
-            VALUE "FileVersion", "1.5.2.0\0"
-            VALUE "InternalName", "matrix\0"
-            VALUE "LegalCopyright", "Copyright © 2003\0"
-            VALUE "LegalTrademarks", "\0"
-            VALUE "OriginalFilename", "matrix.exe\0"
-            VALUE "PrivateBuild", "\0"
-            VALUE "ProductName", "ZMatrix\0"
-            VALUE "ProductVersion", "1.5.2.0\0"
-            VALUE "SpecialBuild", "\0"
+            VALUE "Comments", "This is the core ZMatrix component."
+            VALUE "CompanyName", "Happy Dude, Payalord"
+            VALUE "FileDescription", "matrix"
+            VALUE "FileVersion", "1.5.3.0"
+            VALUE "InternalName", "matrix"
+            VALUE "LegalCopyright", "Copyright © 2003"
+            VALUE "OriginalFilename", "matrix.exe"
+            VALUE "ProductName", "ZMatrix"
+            VALUE "ProductVersion", "1.5.3.0"
         END
     END
     BLOCK "VarFileInfo"
@@ -143,9 +129,7 @@ BEGIN
     END
 END
 
-#endif    // !_MAC
-
-#endif    // English (U.S.) resources
+#endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
