@@ -2,7 +2,7 @@
 
 This project originally forked from: [http://zmatrix.sourceforge.net/](http://zmatrix.sourceforge.net/)
 
-[Download version 1.5.3](ZMatrixSetupNT_1_5_3.exe)
+[Download version 1.5.3](https://github.com/payalord/ZMatrix/releases/download/v1.5.3/ZMatrixSetupNT_1_5_3.exe)
 * File: ZMatrixSetupNT_1_5_3.exe
 * CRC-32: `94e87ebd`
 * MD4: `e4abbb0cd070b60f2b1630644ae79b87`
