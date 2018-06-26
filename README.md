@@ -23,4 +23,4 @@ Original Author: [Z. Shaker](http://zmatrix.sourceforge.net/help/frames_index.ht
 * [Gerald Degeneve](https://github.com/gdegeneve)
 
 # License
-[GPL version 2](LICENSE.txt)
+[GPL version 2](LICENSE.TXT)
