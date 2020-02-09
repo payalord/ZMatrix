@@ -96,8 +96,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,5,3,0
- PRODUCTVERSION 1,5,3,0
+ FILEVERSION 1,5,4,0
+ PRODUCTVERSION 1,5,4,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -115,12 +115,12 @@ BEGIN
             VALUE "Comments", "This is the core ZMatrix component."
             VALUE "CompanyName", "Happy Dude, Payalord"
             VALUE "FileDescription", "matrix"
-            VALUE "FileVersion", "1.5.3.0"
+            VALUE "FileVersion", "1.5.4.0"
             VALUE "InternalName", "matrix"
             VALUE "LegalCopyright", "Copyright © 2003"
             VALUE "OriginalFilename", "matrix.exe"
             VALUE "ProductName", "ZMatrix"
-            VALUE "ProductVersion", "1.5.3.0"
+            VALUE "ProductVersion", "1.5.4.0"
         END
     END
     BLOCK "VarFileInfo"
