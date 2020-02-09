@@ -34,13 +34,6 @@
 #ifndef __globals_h
 #define __globals_h
 
-
-
-
-
-
-
-
 #include <windows.h>
 #include <windowsx.h>
 #include <stdio.h>
@@ -90,6 +83,8 @@ using namespace std;
 #define WM_SET_COEFF_B0 (WM_USER + 16)
 #define WM_GET_COEFF_B1 (WM_USER + 17)
 #define WM_SET_COEFF_B1 (WM_USER + 18)
+
+#define WM_DPICHANGED 0x02E0
 
 
 #ifndef WM_UPDATEUISTATE

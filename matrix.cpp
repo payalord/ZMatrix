@@ -842,6 +842,19 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 			}
 		}
 		break;
+	case (WM_DPICHANGED):
+		{
+		RECT* const rect = (RECT*)lParam;
+		// auto rect = *reinterpret_cast<RECT *>(lParam);
+		SetWindowPos(hWnd,
+			0, // or NULL
+			rect->left,
+			rect->top,
+			rect->right - rect->left,
+			rect->bottom - rect->top,
+			SWP_NOSIZE | SWP_NOMOVE);
+		}
+		break;
 	case(WM_SYSCOLORCHANGE):
 		{
 

@@ -150,6 +150,9 @@
       <AdditionalDependencies>MsgHook.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <EntryPointSymbol>wWinMainCRTStartup</EntryPointSymbol>
     </Link>
+    <Manifest>
+      <AdditionalManifestFiles>manifest.xml</AdditionalManifestFiles>
+    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Win9x|Win32'">
     <ClCompile>
