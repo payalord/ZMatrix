@@ -2,7 +2,6 @@
 
 This project originally forked from: [http://zmatrix.sourceforge.net/](http://zmatrix.sourceforge.net/)
 
-# Releases
 ## v1.5.4
 [Download version 1.5.4](https://github.com/payalord/ZMatrix/releases/download/v1.5.4/ZMatrixSetupNT_1_5_4.exe)
 * File: `ZMatrixSetupNT_1_5_4.exe`
