@@ -51,7 +51,6 @@
   <FILELIST>
       <FILE FILENAME="Config.cpp" FORMNAME="" UNITNAME="Config" CONTAINERID="CCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="ConfigForm.cpp" FORMNAME="ConfigurationForm" UNITNAME="ConfigForm" CONTAINERID="CCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
-      <FILE FILENAME="..\zsMatrix_Borland.lib" FORMNAME="" UNITNAME="zsMatrix_Borland" CONTAINERID="LibTool" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="CharSetForm.cpp" FORMNAME="CharacterSetForm" UNITNAME="CharSetForm" CONTAINERID="CCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="AboutUnit.cpp" FORMNAME="AboutForm" UNITNAME="AboutUnit" CONTAINERID="CCompiler" DESIGNCLASS="" LOCALCOMMAND=""/>
       <FILE FILENAME="ConfigResources.res" FORMNAME="" UNITNAME="ConfigResources.res" CONTAINERID="ResTool" DESIGNCLASS="" LOCALCOMMAND=""/>
