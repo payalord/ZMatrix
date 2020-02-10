@@ -4,7 +4,7 @@ This project originally forked from: [http://zmatrix.sourceforge.net/](http://zm
 
 ## v1.5.4
 [Download version 1.5.4](https://github.com/payalord/ZMatrix/releases/download/v1.5.4/ZMatrixSetupNT_1_5_4.exe)
-* File: `ZMatrixSetupNT_1_5_4.exe`
+* File: ZMatrixSetupNT_1_5_4.exe
 * CRC-32: `217e9453`
 * SHA-1: `6d263dab014a77bf338b59b5aa0c91d59977c917`
 * SHA-256: `7fa6e2e8dff8d6af317d90e8088b254475667bc9ab89bf989c0be2b5908d9c30`
