@@ -6,7 +6,7 @@
 
 #define MAJOR_VER "1"
 #define MINOR_VER "5"
-#define RELEASE_VER "3"
+#define RELEASE_VER "4"
 
 #define VIS_INSTALLER_NAME "ZMatrixVizModule_"+MAJOR_VER+"_"+MINOR_VER+"_"+RELEASE_VER+".exe"
 #define VIS_INSTALLER_PATH "..\DistroVis\Output\"
@@ -25,7 +25,7 @@ AllowNoIcons=yes
 #ifdef WIN9X
 MinVersion=4.0,0
 #else
-MinVersion=0,5.0
+MinVersion=0,6.1
 #endif
 PrivilegesRequired=poweruser
 LicenseFile=LICENSE.TXT
