@@ -47,7 +47,7 @@
 #include <string>
 #include <vector>
 #include <deque>
-#include <algorithm>
+//#include <algorithm>
 #include "resource.h"
 #include "zsMatrix/zsMatrix.h"
 #include "MsgHook/MsgHook.h"

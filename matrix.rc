@@ -84,7 +84,7 @@ BEGIN
         MENUITEM "H&ire the developer",         ID_HIRE
         MENUITEM "&Donate",                     ID_DONATE
         MENUITEM "&Help",                       ID_HELP_REQ
-        MENUITEM "&About",                      ID_ABOUT
+        MENUITEM "&About v202302042125",                      ID_ABOUT
         MENUITEM "E&xit",                       IDCLOSE
     END
 END

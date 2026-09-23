@@ -38,7 +38,7 @@
 #include <vector>
 #include <tchar.h>
 #include "IzsMatrix.h"
-//#include "../globals.h"
+#include "../globals.h"
 
 using namespace std;
 extern unsigned int g_dwRefCount;

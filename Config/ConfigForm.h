@@ -289,7 +289,7 @@ int ConvertSpecialStringsToAnsiString(const std::vector<tstring> &SpecialStrings
 int ConvertSpecialStringsToWideString(const std::vector<tstring> &SpecialStrings,WideString &OutString, _TCHAR Delimiter);
 int ConvertAnsiStringToSpecialStrings(std::vector<tstring> &SpecialStrings,const AnsiString &InString, _TCHAR Delimiter);
 int ConvertWideStringToSpecialStrings(std::vector<tstring> &SpecialStrings,const WideString &InString, _TCHAR Delimiter);
-
+void ConvertWideStringToCharPointer(const std::wstring& wstr, const char* charPointer);
 
 //---------------------------------------------------------------------------
 extern PACKAGE TConfigurationForm *ConfigurationForm;

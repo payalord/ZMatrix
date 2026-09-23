@@ -39,6 +39,7 @@
 #include <string>
 #include <stdio.h>
 #include "../globals.h"
+#include "ConfigForm.h"
 //---------------------------------------------------------------------------
 #pragma package(smart_init)
 #pragma link "SHDocVw_OCX"
@@ -66,9 +67,12 @@ void __fastcall TAboutForm::FormShow(TObject *Sender)
 
         TempString.resize(Application->ExeName.Length() + 1);
 #ifdef UNICODE
-        Application->ExeName.WideChar(&(TempString[0]),TempString.size());
+		Application->ExeName.WideChar(&(TempString[0]),TempString.size());
 #else
-        TempString = Application->ExeName.c_str();
+		const char* tempCharFileName;
+		std::wstring wideFileName = Application->ExeName.c_str();
+		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
+		TempString = tempCharFileName;
 #endif
         dwResult = GetFileVersionInfoSize(&(TempString[0]),&EmptyHandle);
 

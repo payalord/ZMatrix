@@ -182,8 +182,11 @@ void __fastcall TCharacterSetForm::LoadCharacterSetButtonClick(
       TObject *Sender)
 {
     if(this->OpenCharSetDialog->Execute())
-    {
-        FILE *InFile = fopen(this->OpenCharSetDialog->FileName.c_str(),"rt");
+	{
+		const char* tempCharFileName;
+		std::wstring wideFileName = this->OpenCharSetDialog->FileName.c_str();
+		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
+		FILE *InFile = fopen(tempCharFileName,"rt");
 
 
         AnsiString InString;
@@ -245,8 +248,11 @@ void __fastcall TCharacterSetForm::SaveCharacterSetButtonClick(
       TObject *Sender)
 {
     if(this->SaveCharSetDialog->Execute())
-    {
-        FILE *OutFile = fopen(this->SaveCharSetDialog->FileName.c_str(),"wt");
+	{
+		const char* tempCharFileName;
+		std::wstring wideFileName = this->SaveCharSetDialog->FileName.c_str();
+		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
+		FILE *OutFile = fopen(tempCharFileName,"wt");
 
         if(OutFile)
         {
@@ -308,8 +314,11 @@ void __fastcall TCharacterSetForm::LoadSpecialStringsButtonClick(
       TObject *Sender)
 {
     if(this->OpenSpecialStringsDialog->Execute())
-    {
-        FILE *InFile = fopen(this->OpenSpecialStringsDialog->FileName.c_str(),"rt");
+	{
+		const char* tempCharFileName;
+		std::wstring wideFileName = this->OpenSpecialStringsDialog->FileName.c_str();
+		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
+		FILE *InFile = fopen(tempCharFileName,"rt");
 
 
         AnsiString InString;
@@ -364,8 +373,11 @@ void __fastcall TCharacterSetForm::SaveSpecialStringsButtonClick(
       TObject *Sender)
 {
     if(this->SaveSpecialStringsDialog->Execute())
-    {
-        FILE *OutFile = fopen(this->SaveSpecialStringsDialog->FileName.c_str(),"wt");
+	{
+		const char* tempCharFileName;
+		std::wstring wideFileName = this->SaveSpecialStringsDialog->FileName.c_str();
+		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
+		FILE *OutFile = fopen(tempCharFileName,"wt");
 
         if(OutFile)
         {

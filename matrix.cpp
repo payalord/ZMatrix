@@ -73,14 +73,6 @@ LRESULT CALLBACK WindowProc(HWND,UINT,WPARAM,LPARAM);
 //===========================================================================
 //===========================================================================
 
-bool IsWin7OrLater() {
-	DWORD version = GetVersion();
-	DWORD major = (DWORD)(LOBYTE(LOWORD(version)));
-	DWORD minor = (DWORD)(HIBYTE(LOWORD(version)));
-
-	return (major > 6) || ((major == 6) && (minor >= 1));
-}
-
 int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, int nWinMode)
 {
 	CreateMutex(NULL, FALSE,_T("ZMatrix"));
@@ -109,9 +101,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 
 	//Find the desktop window classes
 	ghProgman = FindWindow(_TEXT("Progman"), _TEXT("Program Manager"));
-
-	//Create WorkerW
-	if (IsWin7OrLater()) SendMessageTimeout(ghProgman, 0x052C, 0, 0, SMTO_NORMAL, 1000, NULL);
 
 	if(ghProgman != NULL)
 	{
@@ -179,10 +168,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	}
 	else
 	{
-		if (IsWin7OrLater() && ghProgman) {
-			ghWnd = CreateWindowEx(WS_EX_TRANSPARENT, szWinName, _TEXT("Matrix Code"), WS_CHILDWINDOW | WS_CLIPCHILDREN, gscreenLeft, gscreenTop, gscreenWidth, gscreenHeight, ghProgman, NULL, hInstance, NULL);
-		} 
-		else if(ghShellDLL != NULL)
+		if(ghShellDLL != NULL)
 		{
 			ghWnd = CreateWindowEx(WS_EX_TRANSPARENT,szWinName,_TEXT("Matrix Code"), WS_CHILDWINDOW | WS_OVERLAPPED /*|WS_CLIPSIBLINGS*/|WS_CLIPCHILDREN,0,0,gscreenWidth,gscreenHeight,ghShellDLL,NULL,hInstance,NULL);
 			EnableWindow(ghWnd,FALSE);
@@ -436,21 +422,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 					}
 					else
 					{
-						HWND hp = 0, p = 0, desktop = GetDesktopWindow();
-						WorkerW = 0;
-						while (!WorkerW) {
-							hp = FindWindowEx(desktop, hp, _T("WorkerW"), 0);
-							if (hp) {
-								p = FindWindowEx(hp, 0, _T("SHELLDLL_DefView"), 0);
-								if (p) {
-									WorkerW = FindWindowEx(desktop, hp, _T("WorkerW"), 0);
-									if (WorkerW && IsWindowVisible(WorkerW)) ShowWindow(WorkerW, SW_HIDE);
-									break;
-								}
-							}
-							else break;
-						}
-
 						POINT TestPoint = {0,0};
 						ClientToScreen(ghWnd,&TestPoint);
 
@@ -594,8 +565,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 				break;
 			case(ID_ABOUT):
 				{
-					//Launch the about dialog using the method provided in config.dll
-					HINSTANCE hDLL = LoadLibrary(_TEXT("Config.dll"));
+					//Launch the about dialog using the method provided in ConfigModern.dll
+					HINSTANCE hDLL = LoadLibrary(_TEXT("ConfigModern.dll"));
 
 					if(hDLL != NULL)
 					{
@@ -629,8 +600,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 				break;
 			case(ID_HIRE):
 				{
-					//Launch the about dialog using the method provided in config.dll
-					HINSTANCE hDLL = LoadLibrary(_TEXT("Config.dll"));
+					//Launch the about dialog using the method provided in ConfigModern.dll
+					HINSTANCE hDLL = LoadLibrary(_TEXT("ConfigModern.dll"));
 
 					if(hDLL != NULL)
 					{

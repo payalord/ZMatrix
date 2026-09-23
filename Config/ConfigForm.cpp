@@ -1506,6 +1506,13 @@ int  ConvertWideStringToSpecialStrings(std::vector<tstring> &SpecialStrings,cons
 
     return 1;
 }
+
+void ConvertWideStringToCharPointer(const std::wstring& wstr, const char* charPointer) {
+	wstring your_wchar_in_ws(wstr);
+	string your_wchar_in_str(your_wchar_in_ws.begin(), your_wchar_in_ws.end());
+	charPointer = your_wchar_in_str.c_str();
+}
+
 //---------------------------------------------------------------------------
 void TConfigurationForm::SetFormMaxStream(int NewFormMaxStream)
 {
@@ -1597,15 +1604,15 @@ void TConfigurationForm::SetFormFont(HFONT hFont)
 
         if(NewLogFont.lfPitchAndFamily & FIXED_PITCH)
         {
-            TargetFont->Pitch = fpFixed;
+			TargetFont->Pitch = TFontPitch::fpFixed;
         }
         else if(NewLogFont.lfPitchAndFamily & VARIABLE_PITCH)
         {
-            TargetFont->Pitch = fpVariable;
+			TargetFont->Pitch = TFontPitch::fpVariable;
         }
         else
         {
-            TargetFont->Pitch = fpDefault;
+            TargetFont->Pitch = TFontPitch::fpDefault;
         }
 
         if(NewLogFont.lfWeight >= FW_BOLD) TargetFont->Style = TargetFont->Style << fsBold;
@@ -1646,15 +1653,15 @@ void TConfigurationForm::SetFormSpecialFont(HFONT hFont)
 
         if(NewLogFont.lfPitchAndFamily & FIXED_PITCH)
         {
-            TargetFont->Pitch = fpFixed;
+			TargetFont->Pitch = TFontPitch::fpFixed;
         }
         else if(NewLogFont.lfPitchAndFamily & VARIABLE_PITCH)
         {
-            TargetFont->Pitch = fpVariable;
-        }
+			TargetFont->Pitch = TFontPitch::fpVariable;
+		}
         else
         {
-            TargetFont->Pitch = fpDefault;
+            TargetFont->Pitch = TFontPitch::fpDefault;
         }
 
         if(NewLogFont.lfWeight >= FW_BOLD) TargetFont->Style = TargetFont->Style << fsBold;

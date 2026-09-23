@@ -1318,11 +1318,11 @@ bool LaunchConfig(IzsMatrix *&ObjectToConfig)
 	if(!AlreadyInConfig)
 	{
 		AlreadyInConfig = true;
-		HINSTANCE hDLL = LoadLibrary(_TEXT("Config.dll"));
+		HINSTANCE hDLL = LoadLibrary(_TEXT("ConfigModern.dll"));
 
 		if(hDLL == NULL)
 		{
-			MB("Failed to load Config.dll");
+			MB("Failed to load ConfigModern.dll");
 			RetVal = false;
 		}
 		else
@@ -1331,7 +1331,7 @@ bool LaunchConfig(IzsMatrix *&ObjectToConfig)
 
 			if(ConfigLauncher == NULL)
 			{
-				MB("Failed to find LaunchConfigForm in Config.dll");
+				MB("Failed to find LaunchConfigForm in ConfigModern.dll");
 				RetVal = false;
 			}
 			else
@@ -1437,11 +1437,11 @@ bool LaunchScreenSaverConfig(IzsMatrix *&ObjectToConfig)
 	if(!AlreadyInConfig)
 	{
 		AlreadyInConfig = true;
-		HINSTANCE hDLL = LoadLibrary(_TEXT("Config.dll"));
+		HINSTANCE hDLL = LoadLibrary(_TEXT("ConfigModern.dll"));
 
 		if(hDLL == NULL)
 		{
-			MB("Failed to load Config.dll");
+			MB("Failed to load ConfigModern.dll");
 			RetVal = false;
 		}
 		else
@@ -1450,7 +1450,7 @@ bool LaunchScreenSaverConfig(IzsMatrix *&ObjectToConfig)
 
 			if(ConfigLauncher == NULL)
 			{
-				MB("Failed to find LaunchConfigForm in Config.dll");
+				MB("Failed to find LaunchConfigForm in ConfigModern.dll");
 				RetVal = false;
 			}
 			else
@@ -1572,8 +1572,8 @@ bool SaveConfig(IzsMatrix *Matrix,unsigned int RefreshTime,const _TCHAR *ConfigF
 		ConfigFile = AppConfigFilePath.c_str();
 	}
 
-	//Save the configuration to file using the method provided in config.dll
-	HINSTANCE hDLL = LoadLibrary(_TEXT("Config.dll"));
+	//Save the configuration to file using the method provided in ConfigModern.dll
+	HINSTANCE hDLL = LoadLibrary(_TEXT("ConfigModern.dll"));
 
 	if(hDLL != NULL)
 	{
@@ -1613,8 +1613,8 @@ bool LoadConfig(IzsMatrix *Matrix,unsigned int &RefreshTime,const _TCHAR *Config
 		ConfigFile = AppConfigFilePath.c_str();
 	}
 
-	//Load the configuration from file using the method provided in config.dll
-	HINSTANCE hDLL = LoadLibrary(_TEXT("Config.dll"));
+	//Load the configuration from file using the method provided in ConfigModern.dll
+	HINSTANCE hDLL = LoadLibrary(_TEXT("ConfigModern.dll"));
 	DWORD PriorityClass = IDLE_PRIORITY_CLASS;
 
 	if(hDLL != NULL)
