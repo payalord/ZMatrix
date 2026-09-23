@@ -1,0 +1,137 @@
+#include <windows.h>
+#include <commctrl.h>
+#include "resource.h"
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+IDI_MATRIX ICON "../ZMatrix.ico"
+IDB_AUTHOR BITMAP "../Config/me.bmp"
+IDB_HIRE BITMAP "../Config/HireFormImage.bmp"
+102 WAVE "../Config/happy_dude.wav"
+COMMENTS.HTML 23 "../Config/comments.html"
+HIRE.HTML 23 "../Config/hire.html"
+
+IDR_MENU MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Save configuration...", IDM_SAVE
+        MENUITEM "&Load configuration...", IDM_LOAD
+        MENUITEM "Load &defaults", IDM_DEFAULTS
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit", IDM_EXIT
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&Help", IDM_HELP
+        MENUITEM "&Readme", IDM_README
+        MENUITEM SEPARATOR
+        MENUITEM "&Homepage", IDM_HOMEPAGE
+        MENUITEM "&Project summary", IDM_PROJECT
+        MENUITEM "&Support requests", IDM_SUPPORT
+        MENUITEM "&Bug reports", IDM_BUGS
+        MENUITEM "&Feature requests", IDM_FEATURES
+        MENUITEM "&Discussion forums", IDM_DISCUSSION
+        MENUITEM SEPARATOR
+        MENUITEM "D&onate", IDM_DONATE
+        MENUITEM "H&ire the original author...", IDM_HIRE
+        MENUITEM "&About ZMatrix...", IDM_ABOUT
+    END
+END
+
+IDD_CONFIG DIALOGEX 0, 0, 500, 335
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "ZMatrix configuration"
+MENU IDR_MENU
+FONT 9, "Segoe UI"
+BEGIN
+    GROUPBOX "Text", -1, 8, 6, 236, 110
+    PUSHBUTTON "&Font...", IDC_FONT, 16, 20, 72, 16
+    LTEXT "", IDC_FONT_NAME, 94, 23, 142, 14
+    PUSHBUTTON "Special f&ont...", IDC_SPECIAL_FONT, 16, 41, 72, 16
+    LTEXT "", IDC_SPECIAL_FONT_NAME, 94, 44, 142, 14
+    PUSHBUTTON "&Characters and special strings...", IDC_CHARACTERS, 16, 63, 220, 17
+    LTEXT "Special strings (%)", -1, 16, 93, 90, 12
+    CONTROL "", IDC_PROBABILITY + SLIDER_OFFSET, "msctls_trackbar32", WS_TABSTOP | TBS_NOTICKS, 108, 87, 82, 22
+    EDITTEXT IDC_PROBABILITY, 193, 90, 43, 14, ES_NUMBER | ES_AUTOHSCROLL
+
+    GROUPBOX "Colors", -1, 252, 6, 240, 110
+    LTEXT "Ordinary text", -1, 260, 23, 75, 12
+    PUSHBUTTON "Lead", IDC_FOREGROUND, 335, 20, 72, 17, BS_OWNERDRAW
+    PUSHBUTTON "Trail", IDC_FADE, 412, 20, 72, 17, BS_OWNERDRAW
+    LTEXT "Special strings", -1, 260, 44, 75, 12
+    PUSHBUTTON "Lead", IDC_SPECIAL_FOREGROUND, 335, 41, 72, 17, BS_OWNERDRAW
+    PUSHBUTTON "Trail", IDC_SPECIAL_FADE, 412, 41, 72, 17, BS_OWNERDRAW
+    PUSHBUTTON "Background", IDC_BACKGROUND, 260, 63, 86, 17, BS_OWNERDRAW
+    PUSHBUTTON "Copy ordinary colors to special", IDC_COPY_COLORS, 350, 63, 134, 17
+    CONTROL "", IDC_PREVIEW, "STATIC", SS_OWNERDRAW, 260, 85, 224, 23
+
+    GROUPBOX "Streams", -1, 8, 122, 236, 90
+    LTEXT "Maximum streams", -1, 16, 143, 90, 12
+    CONTROL "", IDC_MAX_STREAM + SLIDER_OFFSET, "msctls_trackbar32", WS_TABSTOP | TBS_NOTICKS, 108, 137, 82, 22
+    EDITTEXT IDC_MAX_STREAM, 193, 140, 43, 14, ES_NUMBER | ES_AUTOHSCROLL
+    LTEXT "Speed variance", -1, 16, 166, 90, 12
+    CONTROL "", IDC_SPEED + SLIDER_OFFSET, "msctls_trackbar32", WS_TABSTOP | TBS_NOTICKS, 108, 160, 82, 22
+    EDITTEXT IDC_SPEED, 193, 163, 43, 14, ES_NUMBER | ES_AUTOHSCROLL
+    LTEXT "Refresh time (ms)", -1, 16, 189, 90, 12
+    CONTROL "", IDC_REFRESH + SLIDER_OFFSET, "msctls_trackbar32", WS_TABSTOP | TBS_NOTICKS, 108, 183, 82, 22
+    EDITTEXT IDC_REFRESH, 193, 186, 43, 14, ES_NUMBER | ES_AUTOHSCROLL
+
+    GROUPBOX "Background", -1, 252, 122, 240, 90
+    LTEXT "Background mode", -1, 260, 143, 90, 12
+    COMBOBOX IDC_BG_MODE, 359, 139, 125, 70, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "Bitmap blending", -1, 260, 166, 90, 12
+    COMBOBOX IDC_BLEND, 359, 162, 125, 70, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "Background opacity", -1, 260, 189, 94, 12
+    COMBOBOX IDC_OPACITY, 359, 185, 125, 70, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+
+    GROUPBOX "Monotonous cleanup", -1, 8, 218, 236, 51
+    AUTOCHECKBOX "&Enabled", IDC_MONOTONOUS, 16, 232, 70, 12
+    LTEXT "Back trace", -1, 16, 252, 90, 12
+    CONTROL "", IDC_BACKTRACE + SLIDER_OFFSET, "msctls_trackbar32", WS_TABSTOP | TBS_NOTICKS, 108, 244, 82, 22
+    EDITTEXT IDC_BACKTRACE, 193, 247, 43, 14, ES_NUMBER | ES_AUTOHSCROLL
+
+    GROUPBOX "Randomized cleanup", -1, 252, 218, 240, 78
+    AUTOCHECKBOX "E&nabled", IDC_RANDOMIZED, 260, 232, 70, 12
+    LTEXT "Leading", -1, 260, 252, 90, 12
+    CONTROL "", IDC_LEADING + SLIDER_OFFSET, "msctls_trackbar32", WS_TABSTOP | TBS_NOTICKS, 358, 244, 82, 22
+    EDITTEXT IDC_LEADING, 443, 247, 41, 14, ES_NUMBER | ES_AUTOHSCROLL
+    LTEXT "Space padding", -1, 260, 278, 90, 12
+    CONTROL "", IDC_SPACE + SLIDER_OFFSET, "msctls_trackbar32", WS_TABSTOP | TBS_NOTICKS, 358, 270, 82, 22
+    EDITTEXT IDC_SPACE, 443, 273, 41, 14, ES_NUMBER | ES_AUTOHSCROLL
+
+    LTEXT "Process priority", -1, 16, 282, 87, 12
+    COMBOBOX IDC_PRIORITY, 108, 278, 128, 90, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "Changes are previewed immediately. Cancel restores the previous settings.", -1, 8, 315, 337, 12
+    DEFPUSHBUTTON "OK", IDOK, 356, 310, 64, 18
+    PUSHBUTTON "Cancel", IDCANCEL, 428, 310, 64, 18
+END
+
+IDD_CHARACTERS DIALOGEX 0, 0, 420, 296
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Characters and special strings"
+FONT 9, "Segoe UI"
+BEGIN
+    LTEXT "Characters (comma separated; use \\, for a comma and \\\\ for a backslash)", -1, 8, 9, 404, 12
+    CONTROL "", IDC_CHAR_TEXT, "RICHEDIT50W", WS_BORDER | WS_TABSTOP | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN, 8, 25, 404, 74
+    PUSHBUTTON "Load characters...", IDC_LOAD_CHAR, 8, 105, 95, 17
+    PUSHBUTTON "Save characters...", IDC_SAVE_CHAR, 109, 105, 95, 17
+    LTEXT "Special strings (one per line; use \\\\ for a backslash)", -1, 8, 134, 404, 12
+    CONTROL "", IDC_STRING_TEXT, "RICHEDIT50W", WS_BORDER | WS_TABSTOP | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN, 8, 150, 404, 78
+    PUSHBUTTON "Load strings...", IDC_LOAD_STRINGS, 8, 234, 95, 17
+    PUSHBUTTON "Save strings...", IDC_SAVE_STRINGS, 109, 234, 95, 17
+    DEFPUSHBUTTON "OK", IDOK, 276, 270, 64, 18
+    PUSHBUTTON "Cancel", IDCANCEL, 348, 270, 64, 18
+END
+
+IDD_INFO DIALOGEX 0, 0, 420, 310
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About ZMatrix"
+FONT 9, "Segoe UI"
+BEGIN
+    CONTROL "", IDC_INFO_IMAGE, "STATIC", SS_OWNERDRAW, 8, 8, 95, 60
+    LTEXT "", IDC_INFO_TITLE, 115, 10, 297, 53
+    CONTROL "", IDC_INFO_TEXT, "RICHEDIT50W", WS_BORDER | WS_TABSTOP | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY, 8, 76, 404, 200
+    PUSHBUTTON "Donate", IDC_DONATE, 8, 284, 65, 18
+    PUSHBUTTON "Homepage", IDC_HOMEPAGE, 81, 284, 72, 18
+    DEFPUSHBUTTON "OK", IDOK, 348, 284, 64, 18
+END

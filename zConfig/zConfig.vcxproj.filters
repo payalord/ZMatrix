@@ -15,6 +15,9 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Settings.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="UI.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="resource.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="framework.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -23,11 +26,22 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Settings.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="TextFormat.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="UI.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="ConfigDialog.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="CharacterDialog.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="InfoDialog.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Exports.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="dllmain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="zConfig.rc"><Filter>Resource Files</Filter></ResourceCompile>
+    <None Include="zConfig.def"><Filter>Source Files</Filter></None>
   </ItemGroup>
 </Project>

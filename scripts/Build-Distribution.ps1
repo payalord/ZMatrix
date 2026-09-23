@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$SkipBuild,
+    [switch]$IncludeWinamp,
     [string]$MSBuildPath,
     [string]$InnoSetupPath
 )
@@ -31,9 +32,10 @@ $innoSetup = Find-Tool $InnoSetupPath 'ISCC.exe'
 
 Push-Location -LiteralPath $repoRoot
 try {
-    # These separately built components are required by the existing installer.
-    # Check them before building or replacing any distribution files.
-    foreach ($required in @('ZMatrixHelp.chm', 'WinampVis\vis_zmx.dll')) {
+    # Check external inputs before replacing any distribution files.
+    $requiredInputs = @('ZMatrixHelp.chm')
+    if ($IncludeWinamp) { $requiredInputs += 'WinampVis\vis_zmx.dll' }
+    foreach ($required in $requiredInputs) {
         if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
             throw "Missing $required. Build it separately as described in BUILDING.md."
         }
@@ -41,13 +43,9 @@ try {
 
     if (-not $SkipBuild) {
         $msbuild = Find-Tool $MSBuildPath 'MSBuild.exe'
-        if (-not $env:BDS -or -not (Test-Path -LiteralPath (Join-Path $env:BDS 'Bin\CodeGear.Cpp.Targets'))) {
-            throw 'C++Builder is required. Run its rsvars.bat before starting this script.'
-        }
+        # zConfig builds Config.dll as part of the Visual Studio solution.
         & $msbuild matrix.sln /t:Rebuild /p:Configuration=Release /p:Platform=x86 /nologo
         if ($LASTEXITCODE -ne 0) { throw "Visual Studio build failed ($LASTEXITCODE)." }
-        & $msbuild Config\ConfigModern.cbproj /t:Rebuild /p:Config=Release /p:Platform=Win32 /nologo
-        if ($LASTEXITCODE -ne 0) { throw "C++Builder build failed ($LASTEXITCODE)." }
     }
 
     $files = [ordered]@{
@@ -63,9 +61,9 @@ try {
         'MatrixCodeFontSet.txt' = 'MatrixCodeFontSet.txt'
         'Matrix Code Font.ttf' = 'Matrix Code Font.ttf'
         'ZMatrixHelp.chm' = 'ZMatrixHelp.chm'
-        'WinampVis\vis_zmx.dll' = 'vis_zmx.dll'
         'ScreenSaver\ZMatrixSS.scr' = 'ScreenSaver\ZMatrixSS.scr'
     }
+    if ($IncludeWinamp) { $files['WinampVis\vis_zmx.dll'] = 'vis_zmx.dll' }
     foreach ($source in $files.Keys) {
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
             throw "Missing distribution input: $source"
@@ -87,7 +85,9 @@ try {
     foreach ($source in $files.Keys) {
         Copy-Item -LiteralPath $source -Destination (Join-Path $stagePath $files[$source])
     }
-    & $innoSetup 'Setup\ZMatrix_payalord.iss'
+    $installerArgs = @('Setup\ZMatrix_payalord.iss')
+    if ($IncludeWinamp) { $installerArgs = @('/DIncludeWinamp') + $installerArgs }
+    & $innoSetup @installerArgs
     if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed ($LASTEXITCODE)." }
 }
 finally {

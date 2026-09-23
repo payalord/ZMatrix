@@ -1,0 +1,7 @@
+LIBRARY Config
+EXPORTS
+    LaunchAboutForm
+    LaunchHireForm
+    LaunchConfigForm
+    SaveConfigToFile
+    LoadConfigFromFile

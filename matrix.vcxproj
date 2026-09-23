@@ -222,6 +222,11 @@
       <Project>{d4b70d6c-7d68-4a77-8b85-c089d7362e7e}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+    <ProjectReference Include="zConfig\zConfig.vcxproj" Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Release'">
+      <Project>{d6070d18-9b58-4468-8b32-bcb6895b41eb}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
     <ProjectReference Include="zsMatrix\zsMatrix.vcxproj">
       <Project>{4b124c2f-562d-4369-8a2f-0b8378030626}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

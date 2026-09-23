@@ -53,7 +53,9 @@ ShowTasksTreeLines=yes
 [Components]
 Name: "main"; Description: "Main Program Files"; Types: full compact custom; Flags: fixed
 Name: "screensaver"; Description: "Screensaver Component"; Types: full
+#ifdef IncludeWinamp
 Name: "winampvis"; Description: "Winamp 2.x Visualization Component"; Types: full
+#endif
 
 [Files]
 Source: "matrix.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: main
@@ -73,7 +75,9 @@ Source: "LICENSE.TXT"; DestDir: "{app}"; Components: main
 
 Source: "ScreenSaver\ZMatrixSS.scr"; DestDir: "{win}"; Flags: ignoreversion; Components: screensaver
 
+#ifdef IncludeWinamp
 Source: "vis_zmx.dll"; DestDir: "{app}"; Flags: ignoreversion; Components: winampvis
+#endif
 
 [INI]
 Filename: "{win}\ZMatrixSS.ini"; Section: "ZMatrixSS"; Key: "MatrixCommandLine"; String: "{app}\matrix.exe"
