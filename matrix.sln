@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.4.33213.308
+VisualStudioVersion = 17.9.34728.123
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MsgHook", "MsgHook\MsgHook.vcxproj", "{D4B70D6C-7D68-4A77-8B85-C089D7362E7E}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "matrix", "matrix.vcxproj", "{FF7D9959-A46D-47B8-8648-97F51993E443}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zsMatrix", "zsMatrix\zsMatrix.vcxproj", "{4B124C2F-562D-4369-8A2F-0B8378030626}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zConfig", "zConfig\zConfig.vcxproj", "{D6070D18-9B58-4468-8B32-BCB6895B41EB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -87,11 +89,27 @@ Global
 		{4B124C2F-562D-4369-8A2F-0B8378030626}.Template|x64.Build.0 = Template|Win32
 		{4B124C2F-562D-4369-8A2F-0B8378030626}.Template|x86.ActiveCfg = Template|Win32
 		{4B124C2F-562D-4369-8A2F-0B8378030626}.Template|x86.Build.0 = Template|Win32
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Debug|x64.ActiveCfg = Debug|x64
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Debug|x64.Build.0 = Debug|x64
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Debug|x86.ActiveCfg = Debug|Win32
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Debug|x86.Build.0 = Debug|Win32
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Release Win9x|x64.ActiveCfg = Release|x64
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Release Win9x|x64.Build.0 = Release|x64
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Release Win9x|x86.ActiveCfg = Release|Win32
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Release Win9x|x86.Build.0 = Release|Win32
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Release|x64.ActiveCfg = Release|x64
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Release|x64.Build.0 = Release|x64
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Release|x86.ActiveCfg = Release|Win32
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Release|x86.Build.0 = Release|Win32
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Template|x64.ActiveCfg = Debug|x64
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Template|x64.Build.0 = Debug|x64
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Template|x86.ActiveCfg = Debug|Win32
+		{D6070D18-9B58-4468-8B32-BCB6895B41EB}.Template|x86.Build.0 = Debug|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {6635257F-D5F9-42BE-A25C-11224BA0A82D}
+		SolutionGuid = {2CFE62AE-8BF3-4975-8101-D60984EECDFE}
 	EndGlobalSection
 EndGlobal
