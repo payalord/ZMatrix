@@ -57,8 +57,6 @@ if((var) > (max)) (var) = (max);\
 if((var) < (min)) (var) = (min);
 #endif
 
-#define LONG_MAX_PATH 2048
-
 //---------------------------------------------------------------------------
 extern "C" void  __stdcall LaunchAboutForm(void *Parent)
 {
@@ -129,7 +127,7 @@ extern "C" int __stdcall LaunchConfigForm(IzsMatrix *Matrix,unsigned int &Refres
     return false;
 }
 //---------------------------------------------------------------------------
-int  __stdcall SaveConfigToFile(IzsMatrix *Matrix,unsigned int RefreshTime,DWORD Priority,_TCHAR *FileName)
+int  __stdcall SaveConfigToFile(IzsMatrix *Matrix,unsigned int RefreshTime,DWORD Priority,const _TCHAR *FileName)
 {
     if((Matrix == NULL) || (FileName == NULL))
     {
@@ -138,8 +136,7 @@ int  __stdcall SaveConfigToFile(IzsMatrix *Matrix,unsigned int RefreshTime,DWORD
     AnsiString SectionName;
     AnsiString ValueName;
 
-    TIniFile *OutFile = new TIniFile(ExpandFileName(AnsiString(FileName)));
-    //TIniFile *OutFile = new TIniFile(AnsiString(FileName));
+    TIniFile *OutFile = new TIniFile(ExpandFileName(String(FileName)));
 
     SectionName = "General";
 
@@ -320,7 +317,7 @@ int  __stdcall SaveConfigToFile(IzsMatrix *Matrix,unsigned int RefreshTime,DWORD
     return 1;
 }
 //---------------------------------------------------------------------------
-int  __stdcall LoadConfigFromFile(IzsMatrix *Matrix,unsigned int &RefreshTime,DWORD &Priority,_TCHAR *FileName)
+int  __stdcall LoadConfigFromFile(IzsMatrix *Matrix,unsigned int &RefreshTime,DWORD &Priority,const _TCHAR *FileName)
 {
     if((Matrix == NULL) || (FileName == NULL))
     {
@@ -329,8 +326,7 @@ int  __stdcall LoadConfigFromFile(IzsMatrix *Matrix,unsigned int &RefreshTime,DW
     AnsiString SectionName;
     AnsiString ValueName;
 
-    TMemIniFile *InFile = new TMemIniFile(ExpandFileName(AnsiString(FileName)));
-    //TMemIniFile *InFile = new TMemIniFile(AnsiString(FileName));
+    TMemIniFile *InFile = new TMemIniFile(ExpandFileName(String(FileName)));
 
     SectionName = "General";
 
@@ -661,7 +657,7 @@ int WriteLogFontToConfigFile(TCustomIniFile *OutFile,const AnsiString SectionNam
     OutFile->WriteString(SectionName,ValueName,FamilyName);
 
     ValueName = "FontName";
-    OutFile->WriteString(SectionName,ValueName,AnsiString(LogFont.lfFaceName));
+    OutFile->WriteString(SectionName,ValueName,String(LogFont.lfFaceName));
 
     return 1;
 }
@@ -891,11 +887,12 @@ int ReadLogFontFromConfigFile(TCustomIniFile *InFile,const AnsiString SectionNam
     }
 
     ValueName = "FontName";
-    AnsiString FontNameString = InFile->ReadString(SectionName,ValueName,"Terminal");
     #ifdef _UNICODE
-    snwprintf(LogFont.lfFaceName,LF_FACESIZE - 1,_TEXT("%S"),FontNameString.c_str());
+    const WideString FontNameString = InFile->ReadString(SectionName,ValueName,"Terminal");
+    wcsncpy(LogFont.lfFaceName,FontNameString.c_bstr(),LF_FACESIZE - 1);
     #else
-    snprintf(LogFont.lfFaceName,LF_FACESIZE - 1,"%s",FontNameString.c_str());
+    const AnsiString FontNameString = InFile->ReadString(SectionName,ValueName,"Terminal");
+    strncpy(LogFont.lfFaceName,FontNameString.c_str(),LF_FACESIZE - 1);
     #endif
     LogFont.lfFaceName[LF_FACESIZE - 1] = (_TCHAR)'\0';
 
@@ -1505,12 +1502,6 @@ int  ConvertWideStringToSpecialStrings(std::vector<tstring> &SpecialStrings,cons
     }
 
     return 1;
-}
-
-void ConvertWideStringToCharPointer(const std::wstring& wstr, const char* charPointer) {
-	wstring your_wchar_in_ws(wstr);
-	string your_wchar_in_str(your_wchar_in_ws.begin(), your_wchar_in_ws.end());
-	charPointer = your_wchar_in_str.c_str();
 }
 
 //---------------------------------------------------------------------------
@@ -2299,14 +2290,15 @@ void __fastcall TConfigurationForm::SaveClick(TObject *Sender)
 {
     if(this->ConfigSaveDialog->Execute())
     {
-        _TCHAR TargetFile[LONG_MAX_PATH];
         #ifdef _UNICODE
-        snwprintf(TargetFile,LONG_MAX_PATH - 1,_TEXT("%S"),this->ConfigSaveDialog->FileName.c_str());
+        const WideString TargetFile = this->ConfigSaveDialog->FileName;
+        const _TCHAR *FileName = TargetFile.c_bstr();
         #else
-        snprintf(TargetFile,LONG_MAX_PATH - 1,"%s",this->ConfigSaveDialog->FileName.c_str());
+        const AnsiString TargetFile = this->ConfigSaveDialog->FileName;
+        const _TCHAR *FileName = TargetFile.c_str();
         #endif
 
-        SaveConfigToFile(this->TargetMatrix,*(this->TargetRefreshTime),GetPriorityClass(GetCurrentProcess()),TargetFile);
+        SaveConfigToFile(this->TargetMatrix,*(this->TargetRefreshTime),GetPriorityClass(GetCurrentProcess()),FileName);
     }
 }
 //---------------------------------------------------------------------------
@@ -2315,15 +2307,16 @@ void __fastcall TConfigurationForm::LoadClick(TObject *Sender)
 {
     if(this->ConfigOpenDialog->Execute())
     {
-        _TCHAR TargetFile[LONG_MAX_PATH];
         #ifdef _UNICODE
-        snwprintf(TargetFile,LONG_MAX_PATH - 1,_TEXT("%S"),this->ConfigOpenDialog->FileName.c_str());
+        const WideString TargetFile = this->ConfigOpenDialog->FileName;
+        const _TCHAR *FileName = TargetFile.c_bstr();
         #else
-        snprintf(TargetFile,LONG_MAX_PATH - 1,"%s",this->ConfigOpenDialog->FileName.c_str());
+        const AnsiString TargetFile = this->ConfigOpenDialog->FileName;
+        const _TCHAR *FileName = TargetFile.c_str();
         #endif
 
         DWORD PriorityClass = IDLE_PRIORITY_CLASS;
-        LoadConfigFromFile(this->TargetMatrix,*(this->TargetRefreshTime),PriorityClass,TargetFile);
+        LoadConfigFromFile(this->TargetMatrix,*(this->TargetRefreshTime),PriorityClass,FileName);
 
         SetPriorityClass(GetCurrentProcess(),PriorityClass);
 

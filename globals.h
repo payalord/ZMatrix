@@ -47,7 +47,7 @@
 #include <string>
 #include <vector>
 #include <deque>
-//#include <algorithm>
+#include <algorithm>
 #include "resource.h"
 #include "zsMatrix/zsMatrix.h"
 #include "MsgHook/MsgHook.h"
@@ -185,11 +185,11 @@ extern bool BlendScreenSaverWithBGOnly;
 void SetAlwaysSetAsScreenSaverWhileRunning(bool NewVal);
 void SetBlendScreenSaverWithBGOnly(bool NewVal);
 
-typedef int (__stdcall *AboutFormLauncher)(void *Parent);
-typedef int (__stdcall *HireFormLauncher)(void *Parent);
+typedef void (__stdcall *AboutFormLauncher)(void *Parent);
+typedef void (__stdcall *HireFormLauncher)(void *Parent);
 typedef int (__stdcall *ConfigFormLauncher)(IzsMatrix *Matrix,unsigned int &RefreshTime,DWORD &Priority);
-typedef int (__stdcall *ConfigSaver)(IzsMatrix *Matrix,unsigned int RefreshTime,DWORD Priority,_TCHAR *FileName);
-typedef int (__stdcall *ConfigLoader)(IzsMatrix *Matrix,unsigned int &RefreshTime,DWORD &Priority,_TCHAR *FileName);
+typedef int (__stdcall *ConfigSaver)(IzsMatrix *Matrix,unsigned int RefreshTime,DWORD Priority,const _TCHAR *FileName);
+typedef int (__stdcall *ConfigLoader)(IzsMatrix *Matrix,unsigned int &RefreshTime,DWORD &Priority,const _TCHAR *FileName);
 
 
 void MinimizeAll(void);

@@ -183,10 +183,8 @@ void __fastcall TCharacterSetForm::LoadCharacterSetButtonClick(
 {
     if(this->OpenCharSetDialog->Execute())
 	{
-		const char* tempCharFileName;
-		std::wstring wideFileName = this->OpenCharSetDialog->FileName.c_str();
-		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
-		FILE *InFile = fopen(tempCharFileName,"rt");
+        const WideString FileName = this->OpenCharSetDialog->FileName;
+        FILE *InFile = _wfopen(FileName.c_bstr(), L"rt");
 
 
         AnsiString InString;
@@ -208,7 +206,7 @@ void __fastcall TCharacterSetForm::LoadCharacterSetButtonClick(
             ConvertAnsiStringToCharSet(TempCharSet,InString);
 #ifdef UNICODE
             WideString TempString;
-            ConvertCharSetToWideString((const _TCHAR *)&(TempCharSet.front()),TempCharSet.size(),TempString);
+            ConvertCharSetToWideString((TempCharSet.empty() ? NULL : &TempCharSet.front()),TempCharSet.size(),TempString);
 
 
             SETTEXTEX TextStruct;
@@ -220,7 +218,7 @@ void __fastcall TCharacterSetForm::LoadCharacterSetButtonClick(
 
 #else
             AnsiString TempString;
-            ConvertCharSetToAnsiString((const _TCHAR *)&(TempCharSet.front()),TempCharSet.size(),TempString);
+            ConvertCharSetToAnsiString((TempCharSet.empty() ? NULL : &TempCharSet.front()),TempCharSet.size(),TempString);
 
             this->CharacterSetEditField->Text = TempString;
 /*
@@ -249,10 +247,8 @@ void __fastcall TCharacterSetForm::SaveCharacterSetButtonClick(
 {
     if(this->SaveCharSetDialog->Execute())
 	{
-		const char* tempCharFileName;
-		std::wstring wideFileName = this->SaveCharSetDialog->FileName.c_str();
-		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
-		FILE *OutFile = fopen(tempCharFileName,"wt");
+        const WideString FileName = this->SaveCharSetDialog->FileName;
+        FILE *OutFile = _wfopen(FileName.c_bstr(), L"wt");
 
         if(OutFile)
         {
@@ -296,7 +292,7 @@ void __fastcall TCharacterSetForm::SaveCharacterSetButtonClick(
 
 
             AnsiString OutString;
-            ConvertCharSetToAnsiString((const _TCHAR *)&(TempCharSet.front()),TempCharSet.size(),OutString);
+            ConvertCharSetToAnsiString((TempCharSet.empty() ? NULL : &TempCharSet.front()),TempCharSet.size(),OutString);
 
             fprintf(OutFile,"%s",OutString.c_str());
 
@@ -315,10 +311,8 @@ void __fastcall TCharacterSetForm::LoadSpecialStringsButtonClick(
 {
     if(this->OpenSpecialStringsDialog->Execute())
 	{
-		const char* tempCharFileName;
-		std::wstring wideFileName = this->OpenSpecialStringsDialog->FileName.c_str();
-		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
-		FILE *InFile = fopen(tempCharFileName,"rt");
+        const WideString FileName = this->OpenSpecialStringsDialog->FileName;
+        FILE *InFile = _wfopen(FileName.c_bstr(), L"rt");
 
 
         AnsiString InString;
@@ -374,10 +368,8 @@ void __fastcall TCharacterSetForm::SaveSpecialStringsButtonClick(
 {
     if(this->SaveSpecialStringsDialog->Execute())
 	{
-		const char* tempCharFileName;
-		std::wstring wideFileName = this->SaveSpecialStringsDialog->FileName.c_str();
-		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
-		FILE *OutFile = fopen(tempCharFileName,"wt");
+        const WideString FileName = this->SaveSpecialStringsDialog->FileName;
+        FILE *OutFile = _wfopen(FileName.c_bstr(), L"wt");
 
         if(OutFile)
         {

@@ -36,7 +36,7 @@
 #include "AboutUnit.h"
 #include "resource.h"
 #include <tchar.h>
-#include <string>
+#include <vector>
 #include <stdio.h>
 #include "../globals.h"
 #include "ConfigForm.h"
@@ -54,69 +54,25 @@ __fastcall TAboutForm::TAboutForm(TComponent* Owner)
 //---------------------------------------------------------------------------
 void __fastcall TAboutForm::FormShow(TObject *Sender)
 {
-
-    void* VersionData = NULL;
-    try
+    // Use the wide Windows API directly; a VCL file name must not pass through ANSI.
+    const WideString FileName = Application->ExeName;
+    DWORD UnusedHandle = 0;
+    const DWORD Size = GetFileVersionInfoSizeW(FileName.c_bstr(), &UnusedHandle);
+    std::vector<BYTE> VersionData(Size);
+    if(Size != 0 && GetFileVersionInfoW(FileName.c_bstr(), 0, Size, &VersionData[0]))
     {
-        DWORD dwResult;
-        bool bResult;
-        unsigned int uiResult;
-        DWORD EmptyHandle;
-        char* Build = NULL;
-        std::basic_string<TCHAR> TempString;
-
-        TempString.resize(Application->ExeName.Length() + 1);
-#ifdef UNICODE
-		Application->ExeName.WideChar(&(TempString[0]),TempString.size());
-#else
-		const char* tempCharFileName;
-		std::wstring wideFileName = Application->ExeName.c_str();
-		ConvertWideStringToCharPointer(wideFileName,tempCharFileName);
-		TempString = tempCharFileName;
-#endif
-        dwResult = GetFileVersionInfoSize(&(TempString[0]),&EmptyHandle);
-
-        VersionData = new BYTE [dwResult];
-
-        bResult = GetFileVersionInfo(&(TempString[0]), 0,dwResult, VersionData);
-
-
-        if(bResult)
+        VS_FIXEDFILEINFO *Version = NULL;
+        unsigned int VersionSize = 0;
+        if(VerQueryValueW(&VersionData[0], L"\\", (void **)&Version, &VersionSize) &&
+           VersionSize >= sizeof(*Version) && Version->dwSignature == 0xFEEF04BD)
         {
-            char TempBuffer[128];
-            DWORD *pdwLang;
-            unsigned int LangSize;
-
-            VerQueryValue(VersionData,
-                          TEXT("\\VarFileInfo\\Translation"),
-                          (void **)&pdwLang,
-                          &LangSize);
-
-
-            TCHAR szSubBlock[512];   // Version language and section definition
-            _stprintf(szSubBlock, _T("\\StringFileInfo\\%04hX%04hX\\FileVersion"),
-                      LOWORD(*pdwLang), HIWORD(*pdwLang));
-
-            VerQueryValue(VersionData,
-                          szSubBlock, (void**)&Build,
-                          &uiResult);
-#ifdef UNICODE
-            snprintf(TempBuffer,128,"Version %ls (UNICODE)",Build);
-#else
-            snprintf(TempBuffer,128,"Version %s (ASCII)",Build);
-#endif
-
-            VersionLabel->Caption = TempBuffer;
+            char Buffer[128];
+            snprintf(Buffer, sizeof(Buffer), "Version %u.%u.%u.%u",
+                HIWORD(Version->dwFileVersionMS), LOWORD(Version->dwFileVersionMS),
+                HIWORD(Version->dwFileVersionLS), LOWORD(Version->dwFileVersionLS));
+            VersionLabel->Caption = Buffer;
         }
     }
-    __finally
-    {
-        if(VersionData != NULL)
-        {
-            delete VersionData;
-        }
-    }
-
 
     PlaySound(MAKEINTRESOURCE(ID_HAPPYWAV),ghInst,SND_RESOURCE | SND_ASYNC );
 

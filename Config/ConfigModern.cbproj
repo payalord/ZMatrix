@@ -57,9 +57,13 @@
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
         <Multithreaded>true</Multithreaded>
         <ILINK_GenerateImportLibrary>true</ILINK_GenerateImportLibrary>
-        <IncludePath>C:\repos\ZMatrix\Config\;$(IncludePath)</IncludePath>
-        <ILINK_LibraryPath>C:\repos\ZMatrix\Config\;$(ILINK_LibraryPath)</ILINK_LibraryPath>
-        <_TCHARMapping>char</_TCHARMapping>
+        <IncludePath>.;$(IncludePath)</IncludePath>
+        <ILINK_LibraryPath>.;$(ILINK_LibraryPath)</ILINK_LibraryPath>
+        <_TCHARMapping>wchar_t</_TCHARMapping>
+        <Defines>UNICODE;_UNICODE;ZMATRIX_UNICODE_CONFIG;$(Defines)</Defines>
+        <DynamicRTL>false</DynamicRTL>
+        <UsePackages>false</UsePackages>
+        <LinkPackageStatics>vcl.lib;rtl.lib;bcbie.lib</LinkPackageStatics>
         <SanitizedProjectName>ConfigModern</SanitizedProjectName>
         <AllPackageLibs>vcl.lib;rtl.lib;bcbie.lib</AllPackageLibs>
     </PropertyGroup>
@@ -103,7 +107,6 @@
     <PropertyGroup Condition="'$(Cfg_1_Win32)'!=''">
         <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
         <ILINK_LibraryPath>$(BDSLIB)\$(PLATFORM)$(CC_SUFFIX)\debug;$(ILINK_LibraryPath)</ILINK_LibraryPath>
-        <LinkPackageStatics>vcl.lib;rtl.lib;bcbie.lib</LinkPackageStatics>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_2)'!=''">
         <Defines>NDEBUG;$(Defines)</Defines>
@@ -113,41 +116,44 @@
         <BCC_UseClassicCompiler>false</BCC_UseClassicCompiler>
     </PropertyGroup>
     <ItemGroup>
-        <CppCompile Include="C:\repos\ZMatrix\Config\AboutUnit.cpp">
+        <ResourceCompile Include="ConfigResources.rc">
+            <Form>ConfigResources.res</Form>
+        </ResourceCompile>
+        <CppCompile Include="AboutUnit.cpp">
             <Form>AboutForm</Form>
             <FormType>dfm</FormType>
-            <DependentOn>C:\repos\ZMatrix\Config\AboutUnit.h</DependentOn>
+            <DependentOn>AboutUnit.h</DependentOn>
             <BuildOrder>6</BuildOrder>
         </CppCompile>
-        <CppCompile Include="C:\repos\ZMatrix\Config\CharSetForm.cpp">
+        <CppCompile Include="CharSetForm.cpp">
             <Form>CharacterSetForm</Form>
             <FormType>dfm</FormType>
-            <DependentOn>C:\repos\ZMatrix\Config\CharSetForm.h</DependentOn>
+            <DependentOn>CharSetForm.h</DependentOn>
             <BuildOrder>4</BuildOrder>
         </CppCompile>
-        <CppCompile Include="C:\repos\ZMatrix\Config\Config.cpp">
+        <CppCompile Include="Config.cpp">
             <BuildOrder>2</BuildOrder>
         </CppCompile>
-        <CppCompile Include="C:\repos\ZMatrix\Config\ConfigForm.cpp">
+        <CppCompile Include="ConfigForm.cpp">
             <Form>ConfigurationForm</Form>
             <FormType>dfm</FormType>
-            <DependentOn>C:\repos\ZMatrix\Config\ConfigForm.h</DependentOn>
+            <DependentOn>ConfigForm.h</DependentOn>
             <BuildOrder>3</BuildOrder>
         </CppCompile>
-        <CppCompile Include="C:\repos\ZMatrix\Config\HireUnit.cpp">
+        <CppCompile Include="HireUnit.cpp">
             <Form>HireForm</Form>
             <FormType>dfm</FormType>
-            <DependentOn>C:\repos\ZMatrix\Config\HireUnit.h</DependentOn>
+            <DependentOn>HireUnit.h</DependentOn>
             <BuildOrder>5</BuildOrder>
         </CppCompile>
         <PCHCompile Include="ConfigModernPCH1.h">
             <BuildOrder>0</BuildOrder>
             <PCH>true</PCH>
         </PCHCompile>
-        <FormResources Include="C:\repos\ZMatrix\Config\ConfigForm.dfm"/>
-        <FormResources Include="C:\repos\ZMatrix\Config\CharSetForm.dfm"/>
-        <FormResources Include="C:\repos\ZMatrix\Config\AboutUnit.dfm"/>
-        <FormResources Include="C:\repos\ZMatrix\Config\HireUnit.dfm"/>
+        <FormResources Include="ConfigForm.dfm"/>
+        <FormResources Include="CharSetForm.dfm"/>
+        <FormResources Include="AboutUnit.dfm"/>
+        <FormResources Include="HireUnit.dfm"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -984,4 +990,9 @@
     <Import Project="$(BDS)\Bin\CodeGear.Cpp.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Cpp.Targets')"/>
     <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
     <Import Project="$(MSBuildProjectName).deployproj" Condition="Exists('$(MSBuildProjectName).deployproj')"/>
+    <!-- The public DLL name is part of the application/install/resource contract. -->
+    <Target Name="StageConfigDll" AfterTargets="Build;Make;Rebuild" Condition="'$(Platform)'=='Win32'">
+        <Copy SourceFiles="$(MSBuildProjectDirectory)\$(FinalOutputDir)\ConfigModern.dll"
+              DestinationFiles="$(MSBuildProjectDirectory)\..\Config.dll" />
+    </Target>
 </Project>

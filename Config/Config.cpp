@@ -58,6 +58,14 @@ USEFORM("HireUnit.cpp", HireForm);
 //---------------------------------------------------------------------------
 #include "ConfigForm.h"
 
+#ifdef ZMATRIX_UNICODE_CONFIG
+#if !defined(UNICODE) || !defined(_UNICODE)
+#error Config must use Unicode to match the ZMatrix DLL interface.
+#endif
+typedef char ConfigTCharMustBeUtf16[(sizeof(_TCHAR) == 2) ? 1 : -1];
+typedef char ConfigLogFontMustBeWide[(sizeof(LOGFONT) == sizeof(LOGFONTW)) ? 1 : -1];
+#endif
+
 HINSTANCE ghInst = NULL;
 
 //---------------------------------------------------------------------------

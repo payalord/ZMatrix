@@ -273,8 +273,8 @@ extern "C" __declspec(dllexport) void  __stdcall LaunchAboutForm(void *Parent);
 extern "C" __declspec(dllexport) void  __stdcall LaunchHireForm(void *Parent);
 
 extern "C" __declspec(dllexport) int  __stdcall LaunchConfigForm(IzsMatrix *Matrix,unsigned int &RefreshTime,DWORD &Priority);
-extern "C" __declspec(dllexport) int  __stdcall SaveConfigToFile(IzsMatrix *Matrix,unsigned int RefreshTime,DWORD Priority,_TCHAR *FileName);
-extern "C" __declspec(dllexport) int  __stdcall LoadConfigFromFile(IzsMatrix *Matrix,unsigned int &RefreshTime,DWORD &Priority,_TCHAR *FileName);
+extern "C" __declspec(dllexport) int  __stdcall SaveConfigToFile(IzsMatrix *Matrix,unsigned int RefreshTime,DWORD Priority,const _TCHAR *FileName);
+extern "C" __declspec(dllexport) int  __stdcall LoadConfigFromFile(IzsMatrix *Matrix,unsigned int &RefreshTime,DWORD &Priority,const _TCHAR *FileName);
 
 
 int WriteLogFontToConfigFile(TCustomIniFile *OutFile,const AnsiString SectionName,const LOGFONT &LogFont);
@@ -289,7 +289,6 @@ int ConvertSpecialStringsToAnsiString(const std::vector<tstring> &SpecialStrings
 int ConvertSpecialStringsToWideString(const std::vector<tstring> &SpecialStrings,WideString &OutString, _TCHAR Delimiter);
 int ConvertAnsiStringToSpecialStrings(std::vector<tstring> &SpecialStrings,const AnsiString &InString, _TCHAR Delimiter);
 int ConvertWideStringToSpecialStrings(std::vector<tstring> &SpecialStrings,const WideString &InString, _TCHAR Delimiter);
-void ConvertWideStringToCharPointer(const std::wstring& wstr, const char* charPointer);
 
 //---------------------------------------------------------------------------
 extern PACKAGE TConfigurationForm *ConfigurationForm;

@@ -565,8 +565,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 				break;
 			case(ID_ABOUT):
 				{
-					//Launch the about dialog using the method provided in ConfigModern.dll
-					HINSTANCE hDLL = LoadLibrary(_TEXT("ConfigModern.dll"));
+					//Launch the about dialog using the method provided in Config.dll
+					HINSTANCE hDLL = LoadLibrary(_TEXT("Config.dll"));
 
 					if(hDLL != NULL)
 					{
@@ -600,8 +600,8 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 				break;
 			case(ID_HIRE):
 				{
-					//Launch the about dialog using the method provided in ConfigModern.dll
-					HINSTANCE hDLL = LoadLibrary(_TEXT("ConfigModern.dll"));
+					//Launch the about dialog using the method provided in Config.dll
+					HINSTANCE hDLL = LoadLibrary(_TEXT("Config.dll"));
 
 					if(hDLL != NULL)
 					{

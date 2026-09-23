@@ -68,6 +68,7 @@ Source: "MsgHook.dll"; DestDir: "{app}"; Flags: ignoreversion; Components: main
 Source: "Matrix Code Font.ttf"; DestDir: "{fonts}"; FontInstall: "Matrix Code Font"; Flags: uninsneveruninstall ignoreversion; Components: main
 Source: "ZMatrixHelp.chm"; DestDir: "{app}"; Components: main
 Source: "ORIGINALREADME.md"; DestDir: "{app}";Flags: isreadme; Components: main
+Source: "README.md"; DestDir: "{app}"; Components: main
 Source: "LICENSE.TXT"; DestDir: "{app}"; Components: main
 
 Source: "ScreenSaver\ZMatrixSS.scr"; DestDir: "{win}"; Flags: ignoreversion; Components: screensaver
@@ -90,7 +91,7 @@ Filename: "{app}\default.cfg"; Section: "Text"; Key: "FontName"; String: "MS Ser
 Name: "{group}\ZMatrix"; Filename: "{app}\matrix.exe"; WorkingDir: "{app}"
 Name: "{group}\ZMatrix Help"; Filename: "{app}\ZMatrixHelp.chm"; WorkingDir: "{app}"
 Name: "{group}\ZMatrix Homepage"; Filename: "http://zmatrix.n3.net"
-Name: "{group}\ReadMe"; Filename: "{app}\readme.txt"
+Name: "{group}\ReadMe"; Filename: "{app}\ORIGINALREADME.md"
 Name: "{group}\LICENSE"; Filename: "{app}\LICENSE.TXT"
 Name: "{group}\Uninstall ZMatrix"; Filename: "{uninstallexe}"
 Name: "{userstartup}\ZMatrix"; Filename: "{app}\matrix.exe"; WorkingDir: "{app}"; Tasks: autostart\user
