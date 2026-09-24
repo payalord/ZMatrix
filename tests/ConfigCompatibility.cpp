@@ -200,6 +200,19 @@ int wmain(int argc, wchar_t **argv)
             }
             SetValues(matrix.ptr); refresh=41; priority=NORMAL_PRIORITY_CLASS;
             {
+                TemporaryFile temp; temp.path=temp.directory+L"\\blend-modes.cfg";
+                const wchar_t *blendNames[] = {L"blendmodeXOR",L"blendmodeAND",L"blendmodeOR",L"blendmodeShading",L"blendmodeScreen",L"blendmodeMultiply"};
+                for(int mode=0;mode<6;++mode) {
+                    matrix.ptr->SetBlendMode(mode);
+                    Check(save(matrix.ptr,refresh,priority,temp.path.c_str())!=0,"Cannot save blend mode.");
+                    wchar_t savedMode[64]; GetPrivateProfileStringW(L"Colors",L"BlendMode",L"",savedMode,64,temp.path.c_str());
+                    Check(wcscmp(savedMode,blendNames[mode])==0,"Blend CFG identifier changed.");
+                    matrix.ptr->SetBlendMode((mode+1)%6);
+                    Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0 && matrix.ptr->GetBlendMode()==mode,"Blend mode did not round trip.");
+                }
+            }
+            SetValues(matrix.ptr);
+            {
                 TemporaryFile temp; temp.path=temp.directory+L"\\appearance.cfg";
                 Check(save(matrix.ptr,41,priority,temp.path.c_str())!=0,"Cannot save appearance fixture.");
                 Check(WritePrivateProfileStringW(L"Colors",L"BlendStrength",nullptr,temp.path.c_str())!=FALSE,"Cannot remove new key for legacy fixture.");

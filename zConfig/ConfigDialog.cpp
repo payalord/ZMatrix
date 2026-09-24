@@ -192,7 +192,8 @@ static INT_PTR CALLBACK ConfigProcedure(HWND window, UINT message, WPARAM wparam
                 SendDlgItemMessageW(window, n.id, EM_SETLIMITTEXT, 10, 0);
             }
             AddOptions(window, IDC_BG_MODE, {L"Desktop bitmap", L"Solid color"});
-            AddOptions(window, IDC_BLEND, {L"XOR", L"AND", L"OR"});
+            AddOptions(window, IDC_BLEND, {L"Color inversion", L"Dark mix", L"Bright mix",
+                L"Wallpaper shading", L"Soft brighten", L"Soft darken"});
             AddOptions(window, IDC_TEXT_BACKGROUND, {L"Transparent", L"Opaque"});
             AddOptions(window, IDC_PRIORITY, {L"Idle (recommended)", L"Below normal", L"Normal", L"Above normal", L"High"});
             context->Populate(window); return TRUE;

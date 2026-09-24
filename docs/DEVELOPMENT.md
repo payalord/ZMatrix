@@ -35,7 +35,25 @@ back to a generic desktop window. Screensaver rendering is a separate path.
 Rendering is incremental. Blend strength mixes plain characters with the
 wallpaper-blended result in the character-sized work area. Do not introduce a
 fullscreen alpha layer or repaint the entire desktop each frame. Preserve the
-original bitmap result at 100% and remove wallpaper contribution at 0%.
+original bitmap result for legacy modes at 100% and remove wallpaper
+contribution at 0% for every mode.
+
+The UI calls the legacy XOR/AND/OR modes Color inversion, Dark mix and Bright
+mix. Their enum values and CFG identifiers remain unchanged. Wallpaper shading,
+Soft brighten (Screen) and Soft darken (Multiply) append new values. They use
+integer color arithmetic in DrawArithmeticCharacter, with a lazy 48 KiB DIB
+containing three 64 x 64 tiles for glyph coverage, wallpaper and plain/result
+pixels. Larger characters are processed in tiles. No fullscreen buffers or
+per-frame allocations are added. GdiFlush synchronizes the tile before CPU
+access; only dirty character regions are presented. Legacy modes retain their
+GDI path. Full strength skips the plain-character draw. Zero strength bypasses
+wallpaper mixing and frees the tile buffer, as do solid mode and legacy blends.
+
+Shading scales each text channel by wallpaper brightness, approximated as
+(54R + 183G + 19B) / 256. Screen and Multiply use their standard per-channel
+formulas. Glyph coverage includes antialiasing and glow; Blend strength then
+interpolates the result with the plain character. Preserve text-background
+opacity, cleanup, clipping and viewport behavior when extending this path.
 
 The optional minimal glow draws four faint one-pixel character offsets inside
 the existing character rectangle, followed by the original glyph. It reuses

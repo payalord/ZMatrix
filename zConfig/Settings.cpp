@@ -83,7 +83,8 @@ static const NamedValue Pitches[] = {NAMED(DEFAULT_PITCH), NAMED(FIXED_PITCH), N
 static const NamedValue Families[] = {NAMED(FF_DONTCARE), NAMED(FF_DECORATIVE), NAMED(FF_MODERN), NAMED(FF_ROMAN), NAMED(FF_SCRIPT), NAMED(FF_SWISS)};
 static const NamedValue Priorities[] = {NAMED(IDLE_PRIORITY_CLASS), NAMED(BELOW_NORMAL_PRIORITY_CLASS), NAMED(NORMAL_PRIORITY_CLASS), NAMED(ABOVE_NORMAL_PRIORITY_CLASS), NAMED(HIGH_PRIORITY_CLASS)};
 static const NamedValue Backgrounds[] = {NAMED(bgmodeBitmap), NAMED(bgmodeColor)};
-static const NamedValue Blends[] = {NAMED(blendmodeXOR), NAMED(blendmodeAND), NAMED(blendmodeOR)};
+static const NamedValue Blends[] = {NAMED(blendmodeXOR), NAMED(blendmodeAND), NAMED(blendmodeOR),
+    NAMED(blendmodeShading), NAMED(blendmodeScreen), NAMED(blendmodeMultiply)};
 #undef NAMED
 #undef WIDEN
 #undef WIDEN_

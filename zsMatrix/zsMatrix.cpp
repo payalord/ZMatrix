@@ -786,6 +786,7 @@ zsMatrix::zsMatrix(const IzsMatrix &Other)
 //===========================================================================
 zsMatrix::~zsMatrix()
 {
+	ReleaseBlendSurface();
 
 	if ((this->hBackDC != NULL) && (0 == DeleteDC(this->hBackDC)))
 		PrintError("Failed to delete the back DC");
@@ -1100,6 +1101,139 @@ void zsMatrix::DrawBitmapCleanup(HDC target, const RECT &area, const RECT &bitma
 	}
 	BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), hTempSpaceDC, area.left, area.top, SRCCOPY);
 }
+
+static const int BlendTileSize = 64;
+static const int BlendTileStride = 3 * BlendTileSize;
+
+static bool IsArithmeticBlend(TBlendMode mode)
+{
+	return mode >= blendmodeShading && mode <= blendmodeMultiply;
+}
+
+bool zsMatrix::EnsureBlendSurface()
+{
+	if (hBlendDC) return true;
+	hBlendDC = CreateCompatibleDC(NULL);
+	BITMAPINFO info = {};
+	info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	info.bmiHeader.biWidth = BlendTileStride;
+	info.bmiHeader.biHeight = -BlendTileSize;
+	info.bmiHeader.biPlanes = 1;
+	info.bmiHeader.biBitCount = 32;
+	info.bmiHeader.biCompression = BI_RGB;
+	hBlendBitmap = CreateDIBSection(NULL, &info, DIB_RGB_COLORS, reinterpret_cast<void **>(&BlendPixels), NULL, 0);
+	if (!hBlendDC || !hBlendBitmap || !SelectObject(hBlendDC, hBlendBitmap))
+	{
+		ReleaseBlendSurface();
+		return false;
+	}
+	SetTextAlign(hBlendDC, TA_TOP | TA_CENTER);
+	SetBkMode(hBlendDC, TRANSPARENT);
+	return true;
+}
+
+void zsMatrix::ReleaseBlendSurface()
+{
+	if (hBlendDC) DeleteDC(hBlendDC);
+	if (hBlendBitmap) DeleteObject(hBlendBitmap);
+	hBlendDC = NULL;
+	hBlendBitmap = NULL;
+	BlendPixels = NULL;
+}
+
+static unsigned MixChannel(TBlendMode mode, unsigned color, unsigned wallpaper, unsigned shade)
+{
+	if (mode == blendmodeShading) return (color * shade + 127) / 255;
+	if (mode == blendmodeScreen) return 255 - ((255 - color) * (255 - wallpaper) + 127) / 255;
+	return (color * wallpaper + 127) / 255;
+}
+
+void zsMatrix::DrawArithmeticCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds)
+{
+	RECT targetBounds, visible;
+	if (GetClipBox(target, &targetBounds) == ERROR || !IntersectRect(&visible, &character.Rect, &targetBounds)) return;
+	if (!EnsureBlendSurface())
+	{
+		// A small allocation failure must not expose stale scratch pixels.
+		FillRect(target, &character.Rect, hBGBrush);
+		SelectObject(target, character.Font);
+		SetTextColor(target, character.Color);
+		SetBkMode(target, TRANSPARENT);
+		DrawCharacter(target, character);
+		return;
+	}
+	const HGDIOBJ previousFont = SelectObject(hBlendDC, character.Font);
+	const unsigned color[] = {GetBValue(character.Color), GetGValue(character.Color), GetRValue(character.Color)};
+	const unsigned background[] = {GetBValue(BGColorRef), GetGValue(BGColorRef), GetRValue(BGColorRef)};
+	const DWORD backgroundPixel = background[0] | (background[1] << 8) | (background[2] << 16);
+	const bool opaque = BGColor[3] >= 128;
+	for (LONG top = visible.top; top < visible.bottom; top += BlendTileSize)
+	for (LONG left = visible.left; left < visible.right; left += BlendTileSize)
+	{
+		const RECT tile = {left, top, min(left + BlendTileSize, visible.right), min(top + BlendTileSize, visible.bottom)};
+		RECT wallpaperArea = {};
+		const bool hasWallpaper = IntersectRect(&wallpaperArea, &tile, &bitmapBounds) != FALSE;
+		// Full strength needs only coverage and wallpaper; avoid drawing a second glyph.
+		const bool needsPlain = BlendStrength < 100 || !EqualRect(&wallpaperArea, &tile);
+		for (int panel = 0; panel < 3; ++panel)
+		{
+			if (panel == 2 && !needsPlain) continue;
+			SelectClipRgn(hBlendDC, NULL);
+			SetViewportOrgEx(hBlendDC, panel * BlendTileSize - left, -top, NULL);
+			IntersectClipRect(hBlendDC, tile.left, tile.top, tile.right, tile.bottom);
+			FillRect(hBlendDC, &tile, panel == 0 ? static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)) : hBGBrush);
+			if (panel == 1)
+			{
+				if (hasWallpaper) BitBlt(hBlendDC, wallpaperArea.left, wallpaperArea.top, WIDTH(wallpaperArea), HEIGHT(wallpaperArea),
+					hBGDC, wallpaperArea.left, wallpaperArea.top, SRCCOPY);
+			}
+			else
+			{
+				SetBkColor(hBlendDC, panel == 0 ? RGB(0,0,0) : BGColorRef);
+				SetTextColor(hBlendDC, panel == 0 ? RGB(255,255,255) : character.Color);
+				DrawCharacter(hBlendDC, character);
+			}
+		}
+		SelectClipRgn(hBlendDC, NULL);
+		SetViewportOrgEx(hBlendDC, 0, 0, NULL);
+		// Synchronize GDI writes before accessing this small DIB, not the desktop.
+		GdiFlush();
+		for (LONG y = wallpaperArea.top; hasWallpaper && y < wallpaperArea.bottom; ++y)
+		for (LONG x = wallpaperArea.left; x < wallpaperArea.right; ++x)
+		{
+			DWORD *pixel = BlendPixels + (y - top) * BlendTileStride + x - left;
+			const DWORD coverage = pixel[0] & 0xffffff;
+			if (!opaque && !coverage)
+			{
+				pixel[2 * BlendTileSize] = backgroundPixel;
+				continue;
+			}
+			const DWORD wallpaper = pixel[BlendTileSize];
+			const unsigned shade = BlendMode == blendmodeShading ?
+				(54 * ((wallpaper >> 16) & 255) + 183 * ((wallpaper >> 8) & 255) + 19 * (wallpaper & 255) + 128) >> 8 : 0;
+			const DWORD plain = needsPlain ? pixel[2 * BlendTileSize] : 0;
+			DWORD result = 0;
+			for (unsigned channel = 0; channel < 3; ++channel)
+			{
+				const unsigned shift = channel * 8;
+				const unsigned weight = (coverage >> shift) & 255;
+				const unsigned wall = (wallpaper >> shift) & 255;
+				unsigned mixed = MixChannel(BlendMode, color[channel], wall, shade);
+				if (weight != 255)
+				{
+					const unsigned base = opaque ? MixChannel(BlendMode, background[channel], wall, shade) : background[channel];
+					mixed = (weight * mixed + (255 - weight) * base + 127) / 255;
+				}
+				const unsigned value = BlendStrength == 100 ? mixed :
+					(BlendStrength * mixed + (100 - BlendStrength) * ((plain >> shift) & 255) + 50) / 100;
+				result |= value << shift;
+			}
+			pixel[2 * BlendTileSize] = result;
+		}
+		BitBlt(target, left, top, WIDTH(tile), HEIGHT(tile), hBlendDC, 2 * BlendTileSize, 0, SRCCOPY);
+	}
+	SelectObject(hBlendDC, previousFont);
+}
 //===========================================================================
 //===========================================================================
 void zsMatrix::UpdateTarget(HWND hWnd,HBITMAP BGBitmap)
@@ -1255,6 +1389,7 @@ void zsMatrix::GetBGColor(BYTE &R,BYTE &G,BYTE &B,BYTE &A) const
 void zsMatrix::SetBGMode(const TBGMode &NewMode)
 {
 	this->BGMode = (TBGMode)NewMode;
+	if (NewMode != bgmodeBitmap) ReleaseBlendSurface();
 }
 //===========================================================================
 //===========================================================================
@@ -1267,6 +1402,7 @@ TBGMode zsMatrix::GetBGMode(void) const
 void zsMatrix::SetBlendMode(TBlendMode NewBlendMode)
 {
 	this->BlendMode = NewBlendMode;
+	if (!IsArithmeticBlend(NewBlendMode)) ReleaseBlendSurface();
 }
 //===========================================================================
 //===========================================================================
@@ -2023,7 +2159,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 	SelectObject(this->hTempSpaceDC,this->hTempSpaceBitmap);
 	SelectObject(this->hBackDC,this->hBackBitmap);
 	RECT bitmapBounds = {};
-	if (this->BGMode == bgmodeBitmap && this->BlendStrength > 0 && this->BlendStrength < 100)
+	if (this->BGMode == bgmodeBitmap && this->BlendStrength > 0 && (this->BlendStrength < 100 || IsArithmeticBlend(this->BlendMode)))
 		GetClipBox(this->hBackDC, &bitmapBounds);
 
 	if(this->BGMode == bgmodeBitmap)
@@ -2058,6 +2194,21 @@ void zsMatrix::DisplayStreams(HDC hdc)
 					PresentBitmapCharacter(hdc, BrightCharDetails, bitmapBounds);
 					PresentBitmapCharacter(hdc, DimCharDetails, bitmapBounds);
 					CommonCleanup();
+					this->Streams[i]->SetNeedsDrawing(false);
+				}
+			}
+		}
+		else if (IsArithmeticBlend(this->BlendMode))
+		{
+			for (unsigned int i = 0; i < this->MaxStream; ++i)
+			{
+				if (this->Streams[i]->GetStatus() && this->Streams[i]->GetNeedsDrawing())
+				{
+					CalcCurrentAndPreceedingCharDetails(this->Streams[i], BrightCharDetails, DimCharDetails);
+					DrawArithmeticCharacter(hdc, BrightCharDetails, bitmapBounds);
+					DrawArithmeticCharacter(hdc, DimCharDetails, bitmapBounds);
+					if (this->BGColor[3] < 128) { CommonCleanup(); }
+					else { SpecialBitBltCleanup(); }
 					this->Streams[i]->SetNeedsDrawing(false);
 				}
 			}

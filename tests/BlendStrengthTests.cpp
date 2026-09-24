@@ -61,8 +61,8 @@ static void Configure(IzsMatrix &matrix,HWND window,Surface &background,int mode
     SelectObject(background.dc,background.previous);
     matrix.UpdateTarget(window,background.bitmap);
     SelectObject(background.dc,background.bitmap);
-    matrix.SetBGMode(mode==3 ? bgmodeColor : bgmodeBitmap);
-    matrix.SetBlendMode(mode==3 ? blendmodeOR : mode);
+    matrix.SetBGMode(mode==6 ? bgmodeColor : bgmodeBitmap);
+    matrix.SetBlendMode(mode==6 ? blendmodeOR : mode);
     matrix.SetBGColor((color>>16)&255,(color>>8)&255,color&255,opaque ? 255 : 0);
     matrix.SetColor(187,255,187,255); matrix.SetFadeColor(0,128,0,255);
     matrix.SetSpecialStringColor(251,255,251,255); matrix.SetSpecialStringFadeColor(208,244,208,128);
@@ -89,8 +89,50 @@ static std::vector<DWORD> Frame(IzsMatrix &matrix,Surface &output,DWORD color,bo
     output.Fill(color); Arm(matrix,special,x,y);
     const DWORD objects=GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS);
     Check(matrix.Render(output.dc)!=0,"Rendering failed.");
-    Check(GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS)==objects,"Rendering allocated persistent GDI objects.");
+    const DWORD after=GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS);
+    const bool arithmetic=matrix.GetBGMode()==bgmodeBitmap && matrix.GetBlendMode()>=blendmodeShading && matrix.GetBlendMode()<=blendmodeMultiply && ReadBlendStrength(matrix)>0;
+    Check(after==objects || (arithmetic && after==objects+2),"Rendering allocated unexpected GDI objects.");
     return output.Read();
+}
+static void CheckArithmeticColors(HWND window) {
+    Surface background(128,96), output(128,96);
+    Engine mask(L".\\zsMatrix.dll"), engine(L".\\zsMatrix.dll");
+    background.Fill(0);
+    Configure(*mask.matrix,window,background,6,false,false,0);
+    mask.matrix->SetColor(255,255,255,255); mask.matrix->SetFadeColor(255,255,255,255);
+    const auto coverage=Frame(*mask.matrix,output,0,false);
+    const DWORD wallpapers[]={0,0xffffff,0x804020};
+    // Independently calculated RGB fixtures for C=(60,180,100).
+    const DWORD expected[3][3]={{0,0x3cb464,0x12351d},{0x3cb464,0xffffff,0x9ec777},{0,0x3cb464,0x1e2d0d}};
+    for(int mode=blendmodeShading;mode<=blendmodeMultiply;++mode) for(int wallpaper=0;wallpaper<3;++wallpaper) {
+        background.Fill(wallpapers[wallpaper]);
+        Configure(*engine.matrix,window,background,mode,false,false,0);
+        engine.matrix->SetColor(60,180,100,255); engine.matrix->SetFadeColor(60,180,100,255);
+        const auto actual=Frame(*engine.matrix,output,0,false);
+        for(size_t pixel=0;pixel<actual.size();++pixel)
+            Check(actual[pixel]==(coverage[pixel] ? expected[mode-blendmodeShading][wallpaper] : 0),"Arithmetic blend disagrees with the known RGB fixture.");
+    }
+    // Large glyphs cross tile boundaries; antialiasing and glow must remain continuous.
+    Surface largeBackground(256,256), largeOutput(256,256); largeBackground.Fill(0xffffff);
+    Check(SetWindowPos(window,nullptr,0,0,256,256,SWP_NOMOVE|SWP_NOZORDER|SWP_NOACTIVATE)!=FALSE,"Cannot resize the hidden rendering target.");
+    for(BYTE quality:{BYTE(NONANTIALIASED_QUALITY),BYTE(ANTIALIASED_QUALITY),BYTE(CLEARTYPE_QUALITY)}) for(bool glow:{false,true}) {
+        Configure(*engine.matrix,window,largeBackground,blendmodeScreen,false,false,0);
+        Configure(*mask.matrix,window,largeBackground,6,false,false,0);
+        LOGFONTW font={}; font.lfHeight=-180; font.lfQuality=quality; wcscpy_s(font.lfFaceName,L"Courier New");
+        for(IzsMatrix *m:{engine.matrix,mask.matrix}) {
+            m->SetLogFont(font); m->SetSpecialStringLogFont(font);
+            ApplyGlowEnabled(*m,glow);
+        }
+        mask.matrix->SetColor(255,255,255,255); mask.matrix->SetFadeColor(255,255,255,255);
+        const auto white=Frame(*mask.matrix,largeOutput,0,false,115,160);
+        Check(white!=std::vector<DWORD>(256*256,0),"Large-glyph fixture did not render.");
+        Check(Frame(*engine.matrix,largeOutput,0,false,115,160)==white,"Tiling changed glyph coverage, antialiasing or glow.");
+        const DWORD objects=GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS);
+        for(int repeat=0;repeat<8;++repeat) Frame(*engine.matrix,largeOutput,0,false,115,160);
+        Check(GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS)==objects,"Repeated rendering leaked GDI objects.");
+        engine.matrix->SetBlendMode(blendmodeOR);
+        Check(GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS)+2==objects,"Returning to a legacy mode retained the blend workspace.");
+    }
 }
 int wmain(int argc,wchar_t **argv) {
     CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
@@ -103,7 +145,7 @@ int wmain(int argc,wchar_t **argv) {
         for(int y=0;y<height;++y) for(int x=0;x<width;++x)
             background.pixels[y*width+x]=RGB((x*3+y)%256,(y*5+x)%256,(x+y*2)%256);
         alternate.Fill(0xc83675);
-        for(bool glow:{false,true}) for(DWORD color:{0u,0x1d2f3du}) for(int mode=0;mode<4;++mode) for(bool opaque:{false,true}) for(bool special:{false,true}) {
+        for(bool glow:{false,true}) for(DWORD color:{0u,0x1d2f3du}) for(int mode=0;mode<7;++mode) for(bool opaque:{false,true}) for(bool special:{false,true}) {
             Engine engine(L".\\zsMatrix.dll");
             Check(ReadBlendStrength(*engine.matrix)==100,"New engine must default to full strength.");
             Check(!ReadGlowEnabled(*engine.matrix),"New engine must default to glow off.");
@@ -116,12 +158,12 @@ int wmain(int argc,wchar_t **argv) {
                 ApplyGlowEnabled(*engine.matrix,false);
                 const auto disabled=Frame(*engine.matrix,output,color,special);
                 Check(disabled!=full,"Enabling glow did not change the rendered characters.");
-                Engine reference(argc>1 ? argv[1] : L".\\zsMatrix.dll");
+                Engine reference(argc>1 && (mode<3 || mode==6) ? argv[1] : L".\\zsMatrix.dll");
                 Configure(*reference.matrix,window,background,mode,opaque,special,color);
                 Check(Frame(*reference.matrix,output,color,special)==disabled,"Disabling glow did not restore the original renderer.");
                 ApplyGlowEnabled(*engine.matrix,true);
             }
-            if(argc>1 && !glow) {
+            if(argc>1 && !glow && (mode<3 || mode==6)) {
                 Engine previous(argv[1]);
                 Configure(*previous.matrix,window,background,mode,opaque,special,color);
                 Check(Frame(*previous.matrix,output,color,special)==full,"100% changed the original rendering from a solid/black start.");
@@ -140,7 +182,7 @@ int wmain(int argc,wchar_t **argv) {
             const auto plain=Frame(*engine.matrix,output,color,special);
             Engine solid(argc>1 && !glow ? argv[1] : L".\\zsMatrix.dll");
             if(glow) ApplyGlowEnabled(*solid.matrix,true);
-            Configure(*solid.matrix,window,background,3,opaque,special,color);
+            Configure(*solid.matrix,window,background,6,opaque,special,color);
             Check(Frame(*solid.matrix,output,color,special)==plain,"Zero strength differs from plain text on the selected background.");
             Engine other(L".\\zsMatrix.dll");
             ApplyGlowEnabled(*other.matrix,glow);
@@ -158,7 +200,7 @@ int wmain(int argc,wchar_t **argv) {
                 engine.matrix->GetStreams()[0]->SetTickCounter(1);
                 ApplyBlendStrength(*engine.matrix,100-percent);
                 Check(engine.matrix->Render(output.dc)!=0 && output.Read()==first,"An idle frame repainted the screen or existing trails.");
-                if(mode==3) Check(first==full,"Strength unexpectedly affects solid-background mode.");
+                if(mode==6) Check(first==full,"Strength unexpectedly affects solid-background mode.");
             }
             ApplyBlendStrength(*engine.matrix,50);
             const auto mixed=Frame(*engine.matrix,output,color,special);
@@ -175,6 +217,7 @@ int wmain(int argc,wchar_t **argv) {
                     Check(clipped[y*width+x]==mixed[(y+3)*width+x-7],"Character colors changed with target clipping/origin.");
             }
             Engine copy(L".\\zsMatrix.dll"); copy.matrix->CopyFrom(*engine.matrix);
+            Check(copy.matrix->GetBlendMode()==engine.matrix->GetBlendMode(),"Engine copy lost blend mode.");
             Check(ReadGlowEnabled(*copy.matrix)==glow,"Engine copy lost glow state.");
             Check(ReadBlendStrength(*copy.matrix)==50,"Engine copy lost blend strength.");
             copy.matrix->CopyFrom(*copy.matrix);
@@ -199,7 +242,8 @@ int wmain(int argc,wchar_t **argv) {
             const auto resizedPlain=Frame(*engine.matrix,resized,color,special);
             Check(resizedPlain.front()==color && resizedPlain.back()==color,"Resize caused full-surface painting.");
         }
-        puts("PASS: Original black/solid startup at 100%, plain colors at 0%, per-character interpolation, unchanged idle frames/trails, cleanup, off-screen glyphs, XOR/AND/OR, text opacity, special strings, audio, clipping/origin, copies, resize and no added GDI objects.");
+        CheckArithmeticColors(window);
+        puts("PASS: Legacy rendering, all six blend modes, known RGB fixtures, tiled large glyphs, antialiasing/glow, black/solid startup, strength endpoints/interpolation, idle frames/trails, cleanup, off-screen glyphs, text opacity, special strings, audio, clipping/origin, copies, resize and bounded GDI objects.");
     } catch(const std::exception &error) { fprintf(stderr,"FAIL: %s\n",error.what()); result=1; }
     if(window) DestroyWindow(window);
     CoUninitialize(); return result;

@@ -191,7 +191,7 @@ public:
 	}
 
 	int __stdcall Render(HDC hdc);
-	void __stdcall SetBlendStrength(unsigned percent) { BlendStrength = percent > 100 ? 100 : percent; }
+	void __stdcall SetBlendStrength(unsigned percent) { BlendStrength = percent > 100 ? 100 : percent; if (!BlendStrength) ReleaseBlendSurface(); }
 	unsigned __stdcall GetBlendStrength() const { return BlendStrength; }
 	void __stdcall SetGlowEnabled(BOOL enabled) { GlowEnabled = enabled != FALSE; }
 	BOOL __stdcall GetGlowEnabled() const { return GlowEnabled; }
@@ -447,6 +447,14 @@ private:
 	HDC hBackDC;
 	HBITMAP hBackBitmap;
 
+	// Lazily allocated 64 x 64 tiles: coverage, wallpaper and plain/result pixels.
+	// Fixed at 48 KiB even for very large fonts or multiple monitors.
+	HDC hBlendDC = NULL;
+	HBITMAP hBlendBitmap = NULL;
+	DWORD *BlendPixels = NULL;
+	bool EnsureBlendSurface();
+	void ReleaseBlendSurface();
+
 	unsigned BlendStrength = 100;
 	bool GlowEnabled = false;
 
@@ -515,6 +523,7 @@ private:
 	void CalcCurrentAndPreceedingCharDetails(const IzsMatrixStream *Stream,zsCharDetails &Current,zsCharDetails &Preceeding) const;
 	void DrawCharacter(HDC target, const zsCharDetails &character, bool mask = false) const;
 	void PresentBitmapCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds);
+	void DrawArithmeticCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds);
 	void DrawBitmapCleanup(HDC target, const RECT &area, const RECT &bitmapBounds);
 
 	void CalcRectForNthBackChar(const IzsMatrixStream *Stream,unsigned int N,RECT &Rect) const;

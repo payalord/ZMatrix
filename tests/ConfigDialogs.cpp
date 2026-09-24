@@ -85,6 +85,16 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
             Click(window,IDC_GLOW);
             Check(ReadGlowEnabled(*matrix),"Glow checkbox did not preview immediately.");
             Capture(window,L"config");
+            const wchar_t *blendLabels[] = {L"Color inversion",L"Dark mix",L"Bright mix",L"Wallpaper shading",L"Soft brighten",L"Soft darken"};
+            Check(SendDlgItemMessageW(window,IDC_BLEND,CB_GETCOUNT,0,0)==6,"Blend modes are missing from the list.");
+            for(int mode=0;mode<6;++mode) {
+                wchar_t label[64];
+                Check(SendDlgItemMessageW(window,IDC_BLEND,CB_GETLBTEXTLEN,mode,0)<64,"Blend label is too long for the test buffer.");
+                SendDlgItemMessageW(window,IDC_BLEND,CB_GETLBTEXT,mode,reinterpret_cast<LPARAM>(label));
+                Check(wcscmp(label,blendLabels[mode])==0,"Incorrect user-facing blend name.");
+                Select(window,IDC_BLEND,mode);
+                Check(matrix->GetBlendMode()==mode,"Blend mode live preview failed.");
+            }
             Check(GetDlgItemInt(window,IDC_MAX_STREAM,nullptr,FALSE)==137,"Initial stream value not shown.");
             SetDlgItemInt(window,IDC_MAX_STREAM,173,FALSE);
             SetDlgItemInt(window,IDC_REFRESH,61,FALSE);
@@ -231,6 +241,7 @@ int wmain(int argc,wchar_t **argv) {
             accepted=accept; sawConfig=false; sawCharacters=false;
             matrix->SetMaxStream(137); matrix->SetValidCharSet(L"01",2);
             matrix->SetBGMode(bgmodeBitmap); matrix->SetSpecialStringStreamProbability(0.1f);
+            matrix->SetBlendMode(blendmodeOR);
             Check(ApplyBlendStrength(*matrix,100),"Missing appearance interface.");
             Check(ApplyGlowEnabled(*matrix,false),"Missing glow interface.");
             refresh=41; priority=initialPriority; SetPriorityClass(GetCurrentProcess(),initialPriority);
@@ -239,6 +250,7 @@ int wmain(int argc,wchar_t **argv) {
             Check(matrix->GetMaxStream()==(accept?173u:137u) && refresh==(accept?61u:41u),"Accept/Cancel did not preserve expected state.");
             Check(ReadBlendStrength(*matrix)==(accept?35u:100u),"Accept/Cancel did not preserve blend strength.");
             Check(ReadGlowEnabled(*matrix)==accept,"Accept/Cancel did not preserve glow state.");
+            Check(matrix->GetBlendMode()==(accept?blendmodeMultiply:blendmodeOR),"Accept/Cancel did not preserve blend mode.");
             if(!accept) Check(priority==initialPriority && GetPriorityClass(GetCurrentProcess())==initialPriority,"Cancel did not restore process priority.");
         }
         testingAudio = true;

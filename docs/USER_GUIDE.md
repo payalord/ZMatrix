@@ -82,16 +82,32 @@ Background mode selects Bitmap (use the desktop wallpaper) or Solid color
 (use the selected Background color). Set a wallpaper in Windows before using
 bitmap blending.
 
-Bitmap blending selects XOR, AND or OR. These combine the character and
-wallpaper colors with different bitwise operations. Try each with your own
-wallpaper; the result depends on both sets of colors.
+Bitmap blending controls how character colors mix with the wallpaper:
+
+- Color inversion (formerly XOR) changes colors dramatically. White characters
+  invert the wallpaper colors; other character colors invert selected bits.
+- Dark mix (formerly AND) combines colors into a darker result. Some color
+  combinations can become almost invisible.
+- Bright mix (formerly OR) combines colors into a brighter result.
+- Wallpaper shading uses the brightness of wallpaper details while retaining
+  the character's hue. A colorful picture appears in shades of the text color.
+- Soft brighten (Screen) lightens the result with smooth color transitions.
+  It suits dark wallpapers; pale areas can reduce character contrast.
+- Soft darken (Multiply) darkens and colors wallpaper details with smooth
+  transitions. It suits light wallpapers; dark areas can hide characters.
+
+The first three modes retain their original appearance and CFG identifiers.
+Wallpaper shading uses the current character color, including audio changes.
+These modes change colors; Enable glow separately adds a narrow character halo.
+The color/font sample shows text colors and glow on the selected solid color;
+wallpaper mixing is previewed in the running animation.
 
 Text background selects Transparent or Opaque for the area behind individual
 characters. It does not set the transparency of the entire desktop animation.
 
 Blend strength (%) controls the wallpaper contribution to each character area:
 
-- 100% uses the original wallpaper-blending result.
+- 100% uses the selected wallpaper-blending result.
 - 0% uses the selected character and Background colors, without wallpaper
   contribution.
 - Intermediate values mix these two results.

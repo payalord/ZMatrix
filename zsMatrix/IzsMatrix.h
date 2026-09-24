@@ -128,7 +128,9 @@ public:
 typedef int TBGMode;
 typedef int TBlendMode;
 enum __TBGMode{bgmodeBitmap=0,bgmodeColor=1};
-enum __TBlendMode{blendmodeXOR=0,blendmodeAND=1,blendmodeOR=2};
+// Keep the original values for existing CFG files and COM clients.
+enum __TBlendMode{blendmodeXOR=0,blendmodeAND=1,blendmodeOR=2,
+    blendmodeShading=3,blendmodeScreen=4,blendmodeMultiply=5};
 
 class IzsMatrix: public IUnknown
 {
