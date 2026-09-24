@@ -100,12 +100,18 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	ValidRGN = CreateRectRgn(0,0,gscreenWidth,gscreenHeight);
 
 	//Find the desktop window classes
-	ghProgman = FindWindow(_TEXT("Progman"), _TEXT("Program Manager"));
+	ghProgman = FindWindow(_TEXT("Progman"), NULL);
 
 	if(ghProgman != NULL)
 	{
-		ghShellDLL = FindWindowEx(ghProgman, 0, _TEXT("SHELLDLL_DefView"), NULL);
-		ghSysListView = FindWindowEx(ghShellDLL,0,_TEXT("SysListView32"),NULL);
+		if(!InitializeDesktopHost(BackgroundHost))
+		{
+			MessageBox(NULL, _T("ZMatrix could not find a desktop background layer. Please restart Explorer or sign in again and retry."), _T("ZMatrix"), MB_OK|MB_ICONERROR);
+			DeleteObject(ValidRGN);
+			return 1;
+		}
+		ghShellDLL = BackgroundHost.iconView;
+		ghSysListView = BackgroundHost.listView;
 	}
 	else
 	{
@@ -142,7 +148,12 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	
 	wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 
-	if (!RegisterClassEx(&wc)) return 0;
+	if (!RegisterClassEx(&wc))
+	{
+		ReleaseDesktopHost(BackgroundHost);
+		DeleteObject(ValidRGN);
+		return 1;
+	}
 
 	//CoInitialize(NULL);
 	CoInitializeEx(NULL,COINIT_APARTMENTTHREADED );
@@ -153,7 +164,12 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	gSysTrayPopup = GetSubMenu(gSysTrayMenu,0);
 	SetMenuDefaultItem(gSysTrayPopup,0,true);
 
-	if(LiteStepMode)
+	if(BackgroundHost.parent)
+	{
+		RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
+		ghWnd = CreateDesktopRenderWindow(BackgroundHost,hInstance,szWinName,bounds);
+	}
+	else if(LiteStepMode)
 	{
 		if(ghProgman != NULL)
 		{
@@ -180,8 +196,16 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 		}
 	}
 
-
-
+	if(!ghWnd)
+	{
+		MessageBox(NULL, _T("ZMatrix could not create its desktop background window."), _T("ZMatrix"), MB_OK | MB_ICONERROR);
+		ReleaseDesktopHost(BackgroundHost);
+		DeleteObject(ValidRGN);
+		DestroyMenu(gSysTrayMenu);
+		UnregisterClass(szWinName,hInstance);
+		CoUninitialize();
+		return 1;
+	}
 
 	if(!SHGetSpecialFolderPath(ghWnd,AllUsersStartupDirectoryPath,CSIDL_COMMON_STARTUP,FALSE))
 	{
@@ -259,32 +283,9 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	if(FAILED(Result = CoCreateInstanceEx(CLSID_ZSMATRIX,NULL,CLSCTX_ALL,NULL,1,&Qi) ) )
 	{
 		MB("Failed to create MatrixObject");
-		
-
-		StopRegistryListenerThread();
-		DestroyTopLevelListener();
-
-		RestoreOrigDesktop();
-
-		Shell_NotifyIcon(NIM_DELETE,&IconData);
-
-		MatrixObject->Release();
-
-		DeleteObject(ValidRGN);
-		DestroyMenu(gSysTrayMenu);
-		DestroyIcon(IconData.hIcon);
-
-		if(!DestroyWindow(ghWnd))
-			MB("Failed to delete ZMatrix rendering window");
-
-		if(!UnregisterClass(szWinName,ghInstance))
-			MB("Failed to unregister ZMatrix rendering class");
-
-
+		BeforeClose();
 		CoUninitialize();
-
-
-		return 0;
+		return 1;
 	};
 
 	MatrixObject = (IzsMatrix *)Qi.pItf;

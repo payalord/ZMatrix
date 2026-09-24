@@ -55,7 +55,7 @@ HMENU gSysTrayPopup;
 HINSTANCE ghInstance;
 HWND ghWnd = NULL;
 HWND ghProgman = NULL;
-HWND WorkerW = NULL;
+DesktopHost BackgroundHost = {};
 HWND ghShellDLL = NULL;
 HWND ghSysListView = NULL;
 bool LiteStepMode = false;
@@ -590,6 +590,20 @@ void ClearDesktop(void)
 //===========================================================================
 void EnforceDesktop(void)
 {
+	// Explorer composites our opaque background below its icon layer. Clearing
+	// the system wallpaper here would unnecessarily rebuild that desktop layer.
+	if(BackgroundHost.parent && !InScreenSaveMode)
+	{
+		if(DesktopIsCleared) RestoreOrigDesktop();
+		// Explorer can insert a replacement wallpaper window above us. Only
+		// adjust our own child when its position below the icons has changed.
+		if(BackgroundHost.layered && IsWindow(BackgroundHost.iconView) &&
+			GetWindow(ghWnd,GW_HWNDPREV) != BackgroundHost.iconView)
+		{
+			SetWindowPos(ghWnd,BackgroundHost.iconView,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+		}
+		return;
+	}
 	BYTE CurrentBGAlpha = GetBGAlpha();
 
 	if( !DesktopIsCleared && ((CurrentBGAlpha < 128) || (MatrixObject->GetBGMode() == bgmodeColor)))
@@ -651,36 +665,27 @@ HBITMAP UpdateBG(void)
 	else
 	{
 
-		HDC target = GetDC(0);
-		SetViewportOrgEx(target,gscreenLeft,gscreenTop,NULL);
-
-		RECT ClientRect;
-		GetClientRect(ghWnd,&ClientRect);
-		int Width = ClientRect.right - ClientRect.left;
-		int Height = ClientRect.bottom - ClientRect.top;
-
-		HBITMAP hBGBitmap = CreateCompatibleBitmap(target,Width,Height);
-
-
-		if(!PaintDesktop(target))
-		{
-			MB("Failed to PaintDesktop");
-		}
-
+		// Paint the wallpaper into the bitmap, never onto the screen DC: drawing
+		// directly to the desktop briefly overwrites icons and other windows.
+		HDC target = GetDC(NULL);
 		HDC TempDC = CreateCompatibleDC(target);
-		SelectObject(TempDC,hBGBitmap);
-		BitBlt(TempDC,ClientRect.left,ClientRect.top,Width,Height,target,ClientRect.left,ClientRect.top,SRCCOPY);
-	//SaveBitmap(hBGBitmap,_T("UpdatedBG.bmp"));
+		HBITMAP hBGBitmap = CreateCompatibleBitmap(target,gscreenWidth,gscreenHeight);
+		ReleaseDC(NULL,target);
+		if(!TempDC || !hBGBitmap)
+		{
+			if(TempDC) DeleteDC(TempDC);
+			if(hBGBitmap) DeleteObject(hBGBitmap);
+			return NULL;
+		}
+		HGDIOBJ PreviousBitmap = SelectObject(TempDC,hBGBitmap);
+		SetViewportOrgEx(TempDC,-gscreenLeft,-gscreenTop,NULL);
+		if(!PaintDesktop(TempDC))
+		{
+			RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
+			FillRect(TempDC,&bounds,GetSysColorBrush(COLOR_DESKTOP));
+		}
+		SelectObject(TempDC,PreviousBitmap);
 		DeleteDC(TempDC);
-
-		SetViewportOrgEx(target,-gscreenLeft,-gscreenTop,NULL);
-		ReleaseDC(0,target);
-
-		InvalidateRect(NULL,NULL,TRUE);
-
-		//if(MatrixObject != NULL)
-		//	MatrixObject->SetBGBitmap(hBGBitmap);
-
 		return hBGBitmap;
 	}
 }
@@ -688,6 +693,14 @@ HBITMAP UpdateBG(void)
 //===========================================================================
 void UpdateRegions(void)
 {
+	if(BackgroundHost.parent)
+	{
+		// Icon clipping is handled by Explorer's window hierarchy and compositor.
+		SetRectRgn(ValidRGN,0,0,gscreenWidth,gscreenHeight);
+		RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
+		PositionDesktopRenderWindow(BackgroundHost,ghWnd,bounds);
+		return;
+	}
 	if(ghSysListView != NULL)
 	{
 		DWORD ListViewStyles;
@@ -712,6 +725,9 @@ void UpdateRegions(void)
 			RgnAttempts++;
 		}
 
+		// Restore the shell control even when region retrieval fails.
+		SendMessage(ghSysListView,LVM_SETEXTENDEDLISTVIEWSTYLE,LVS_EX_REGIONAL,ListViewStyles);
+
 		if(RgnAttempts >= MaxRgnAttempts)
 		{
 			//This is not neccessarily an error condition, because
@@ -721,9 +737,6 @@ void UpdateRegions(void)
 			DeleteObject(hWndRGN);
 			return;
 		}
-
-		//SelfPostedDesktopStyleChanges++;
-		SendMessage(ghSysListView,LVM_SETEXTENDEDLISTVIEWSTYLE,LVS_EX_REGIONAL,ListViewStyles);
 
 		//if(GetWindowRgn(hWnd,hWndRGN) == ERROR) MB("Error, couldn't get RGN for hWnd");
 
@@ -1681,7 +1694,8 @@ void BeforeClose(void)
 		StopRegistryListenerThread();
 		DestroyTopLevelListener();
 
-		RestoreOrigDesktop();
+		if(!BackgroundHost.parent || WallpaperIsCleared || DesktopColorIsCleared)
+			RestoreOrigDesktop();
 		ShowCursor(TRUE);
 
 
@@ -1693,8 +1707,7 @@ void BeforeClose(void)
 
 		Shell_NotifyIcon(NIM_DELETE,&IconData);
 
-		MatrixObject->Release();
-
+		if(MatrixObject) MatrixObject->Release();
 		MatrixObject = NULL;
 
 		if(PreScreenSaveMatrixObject != NULL)
@@ -1705,6 +1718,7 @@ void BeforeClose(void)
 
 		if(!DestroyWindow(ghWnd))
 			MB("Failed to delete ZMatrix rendering window");
+		ReleaseDesktopHost(BackgroundHost);
 
 		if(!UnregisterClass(szWinName,ghInstance))
 			MB("Failed to unregister ZMatrix rendering class");

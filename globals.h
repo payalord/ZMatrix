@@ -51,6 +51,7 @@
 #include "resource.h"
 #include "zsMatrix/zsMatrix.h"
 #include "MsgHook/MsgHook.h"
+#include "DesktopHost.h"
 
 #ifdef USE_MEM_MANAGER
 #include "mmgr.h"
@@ -130,7 +131,7 @@ extern HMENU gSysTrayPopup;
 extern HINSTANCE ghInstance;
 extern HWND ghWnd;
 extern HWND ghProgman;
-extern HWND WorkerW;
+extern DesktopHost BackgroundHost;
 extern HWND ghShellDLL;
 extern HWND ghSysListView;
 extern bool LiteStepMode;
