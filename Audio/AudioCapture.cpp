@@ -53,8 +53,9 @@ Snapshot Capture::Read() {
         result = {Unavailable,HRESULT_FROM_WIN32(ERROR_TIMEOUT),{},GetTickCount64()};
     return result;
 }
-DWORD Capture::Start(const wchar_t *deviceId) {
+DWORD Capture::Start(const wchar_t *deviceId, unsigned mask) {
     Stop();
+    SetAnalysisMask(mask);
     stop_ = CreateEventW(nullptr,TRUE,FALSE,nullptr);
     if(!stop_) return GetLastError();
     Publish(Starting,S_OK);
@@ -124,13 +125,14 @@ HRESULT Capture::Session(const std::wstring &id) {
     if(FAILED(hr)) return hr;
     ComPtr<IAudioCaptureClient> capture;
     hr = client->GetService(IID_PPV_ARGS(&capture)); if(FAILED(hr)) return hr;
-    Analyzer analyzer(format);
+    Analyzer analyzer(format,mask_.load());
     hr = client->Start(); if(FAILED(hr)) return hr;
     struct StopClient { IAudioClient *p; ~StopClient() { p->Stop(); } } stopClient{client.Get()};
     Publish(Capturing,S_OK);
     ULONGLONG lastPacket = GetTickCount64(), lastAnalysis = 0, lastDeviceCheck = lastPacket;
     bool empty = false;
     while(!Wait(10)) {
+        analyzer.SetMask(mask_.load());
         UINT32 frames = 0;
         for(;;) {
             hr = capture->GetNextPacketSize(&frames); if(FAILED(hr)) return hr;

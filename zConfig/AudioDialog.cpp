@@ -15,6 +15,14 @@ struct AudioEditor {
     bool updating = false;
     COLORREF customColors[16] = {};
     std::vector<audio::Device> devices;
+    double &ReactionValue(int index) {
+        double *values[] = {&settings.sensitivity,&settings.smoothing,&settings.brightnessStrength,&settings.speedStrength,&settings.spawnStrength};
+        return *values[index];
+    }
+    BOOL &Switch(int index) {
+        BOOL *values[] = {&settings.brightnessEnabled,&settings.speedEnabled,&settings.spawnEnabled,&settings.colorEnabled};
+        return *values[index];
+    }
     double &Value(int index) {
         auto &m = settings.profiles[settings.mode];
         if(index < 3) return m.baseScale[index];
@@ -29,12 +37,29 @@ struct AudioEditor {
         updating = true;
         CheckDlgButton(window,IDC_AUDIO_ENABLED,settings.enabled ? BST_CHECKED : BST_UNCHECKED);
         SendDlgItemMessageW(window,IDC_AUDIO_MODE,CB_SETCURSEL,settings.mode,0);
+        SendDlgItemMessageW(window,IDC_AUDIO_SOURCE,CB_SETCURSEL,settings.responseSource,0);
+        for(int i = 0; i < 4; ++i) CheckDlgButton(window,IDC_AUDIO_BRIGHTNESS+i,Switch(i) ? BST_CHECKED : BST_UNCHECKED);
+        for(int i = 0; i < 5; ++i) {
+            std::wostringstream text; text.imbue(std::locale::classic()); text << std::setprecision(17) << ReactionValue(i)*100;
+            const int id = IDC_AUDIO_REACTION_NUMBER+i;
+            SetDlgItemTextW(window,id,text.str().c_str());
+            SendDlgItemMessageW(window,id+SLIDER_OFFSET,TBM_SETPOS,TRUE,static_cast<LPARAM>(std::lround(ReactionValue(i)*100)));
+            const BOOL enabled = i < 2 || Switch(i-2);
+            EnableWindow(GetDlgItem(window,id),enabled); EnableWindow(GetDlgItem(window,id+SLIDER_OFFSET),enabled);
+        }
+        SetDlgItemTextW(window,IDC_AUDIO_SOURCE_DESCRIPTION,settings.responseSource == audio::AudioLevel ?
+            L"Follows the loudness of all sound. Controls brightness, speed and new streams." :
+            L"Follows low-frequency energy (bass). Controls brightness, speed and new streams.");
         for(int i = 0; i < 8; ++i) {
             // Preserve imported fractional percentages until the user edits them.
             std::wostringstream text; text.imbue(std::locale::classic()); text << std::setprecision(17) << Value(i)*100;
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER+i,text.str().c_str());
             SendDlgItemMessageW(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET,TBM_SETPOS,TRUE,static_cast<LPARAM>(std::lround(Value(i)*100)));
+            EnableWindow(GetDlgItem(window,IDC_AUDIO_NUMBER+i),settings.colorEnabled);
+            EnableWindow(GetDlgItem(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET),settings.colorEnabled);
         }
+        for(int id : {IDC_AUDIO_MODE,IDC_AUDIO_BASE_COLOR,IDC_AUDIO_PEAK_COLOR,IDC_AUDIO_DESCRIPTION})
+            EnableWindow(GetDlgItem(window,id),settings.colorEnabled);
         const auto &m = settings.profiles[settings.mode];
         for(int i = 0; i < 2; ++i) {
             const double *rgb = i ? m.peakOffset : m.baseOffset;
@@ -61,40 +86,56 @@ struct AudioEditor {
         SendDlgItemMessageW(window,IDC_AUDIO_DEVICE,CB_SETCURSEL,selected,0);
         if(FAILED(hr)) SetDlgItemTextW(window,IDC_AUDIO_STATUS,L"Playback devices could not be listed. You can retry with Refresh.");
     }
-    bool ReadNumber(HWND window, int i, bool validate) {
-        const auto text = WindowText(GetDlgItem(window,IDC_AUDIO_NUMBER+i));
+    bool ReadNumber(HWND window, int i, bool validate, bool reaction = false) {
+        const int id = (reaction ? IDC_AUDIO_REACTION_NUMBER : IDC_AUDIO_NUMBER)+i;
+        const auto text = WindowText(GetDlgItem(window,id));
         std::wistringstream in(text); in.imbue(std::locale::classic());
         double value = 0;
-        const int low = i == 7 ? -500 : 0, high = i == 7 ? 500 : i == 6 ? 2000 : 1000;
+        const int low = !reaction && i == 7 ? -500 : 0;
+        const int high = reaction ? (i == 0 ? 2000 : 100) : i == 7 ? 500 : i == 6 ? 2000 : 1000;
         bool valid = bool(in >> value);
         in >> std::ws;
         valid = valid && in.eof() && std::isfinite(value) && value >= low && value <= high;
         if(!valid) {
             if(validate) {
-                SetFocus(GetDlgItem(window,IDC_AUDIO_NUMBER+i));
+                SetFocus(GetDlgItem(window,id));
                 throw Error{L"Enter a percentage from " + std::to_wstring(low) + L" to " + std::to_wstring(high) + L" (use a decimal point).",ERROR_INVALID_DATA};
             }
             return false;
         }
-        const double previous = Value(i);
-        if(value != previous*100) Value(i) = value/100;
-        try { Preview(); } catch(...) { Value(i) = previous; throw; }
-        SendDlgItemMessageW(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET,TBM_SETPOS,TRUE,static_cast<LPARAM>(std::lround(value)));
+        double &setting = reaction ? ReactionValue(i) : Value(i);
+        const double previous = setting;
+        if(value != previous*100) setting = value/100;
+        try { Preview(); } catch(...) { setting = previous; throw; }
+        SendDlgItemMessageW(window,id+SLIDER_OFFSET,TBM_SETPOS,TRUE,static_cast<LPARAM>(std::lround(value)));
         return true;
     }
-    void Validate(HWND window) { for(int i = 0; i < 8; ++i) ReadNumber(window,i,true); }
+    void Validate(HWND window) {
+        for(int i = 0; i < 8; ++i) ReadNumber(window,i,true);
+        for(int i = 0; i < 5; ++i) ReadNumber(window,i,true,true);
+    }
     void Status(HWND window) {
         audio::Status status = {}; host.status(host.context,&status);
         std::wstring text;
         if(status.error != S_OK && status.state == audio::Disabled) text = L"Saved audio settings could not be read; defaults are in use.";
-        else if(status.state == audio::Disabled) text = L"Disabled. Ordinary ZMatrix colors are in use.";
+        else if(status.state == audio::Disabled) text = settings.enabled ?
+            L"No active influence. Enable an effect and set its strength above zero." : L"Disabled. Ordinary ZMatrix appearance and motion are in use.";
         else if(status.state == audio::Starting) text = L"Opening the playback output...";
         else if(status.state == audio::Capturing) {
-            wchar_t value[96]; swprintf_s(value,L"Capturing output audio. Response: %.1f%%",100*std::clamp(
-                status.descriptor*settings.profiles[settings.mode].globalScale+settings.profiles[settings.mode].globalOffset,0.0,1.0));
-            text = value;
+            text = L"Capturing output audio.";
+            wchar_t value[80];
+            if((settings.brightnessEnabled && settings.brightnessStrength > 0) || (settings.speedEnabled && settings.speedStrength > 0) ||
+               (settings.spawnEnabled && settings.spawnStrength > 0)) {
+                swprintf_s(value,L" %ls response: %.1f%%.",settings.responseSource == audio::BassEnergy ? L"Bass" : L"Level",100*status.response);
+                text += value;
+            }
+            if(settings.colorEnabled) {
+                swprintf_s(value,L" Color response: %.1f%%.",100*std::clamp(status.descriptor*settings.profiles[settings.mode].globalScale+
+                    settings.profiles[settings.mode].globalOffset,0.0,1.0));
+                text += value;
+            }
         } else {
-            wchar_t value[144]; swprintf_s(value,L"Output unavailable (0x%08lX). Ordinary colors are in use; retrying...",static_cast<unsigned long>(status.error));
+            wchar_t value[144]; swprintf_s(value,L"Output unavailable (0x%08lX). Ordinary appearance and motion are in use; retrying...",static_cast<unsigned long>(status.error));
             text = value;
         }
         SetDlgItemTextW(window,IDC_AUDIO_STATUS,text.c_str());
@@ -113,6 +154,7 @@ static void ImportLegacyWinampSettings(HWND window, AudioEditor &editor) {
     auto imported = editor.settings;
     const DWORD error = audio::Load(file,imported,true);
     if(error) throw Error{L"This file does not contain valid legacy Winamp settings. RGB lists must use decimal points, and all values must stay within the supported ranges.",error};
+    imported.colorEnabled = TRUE;
     const auto previous = editor.settings;
     editor.settings = imported;
     try { editor.Preview(); } catch(...) { editor.settings = previous; throw; }
@@ -126,6 +168,12 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
             SetWindowLongPtrW(window,DWLP_USER,lparam); InitDialog(window);
             for(const auto label : {L"Waveform variation",L"Spectral centroid"})
                 SendDlgItemMessageW(window,IDC_AUDIO_MODE,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label));
+            for(const auto label : {L"Audio level",L"Bass energy"})
+                SendDlgItemMessageW(window,IDC_AUDIO_SOURCE,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label));
+            for(int i = 0; i < 5; ++i) {
+                SendDlgItemMessageW(window,IDC_AUDIO_REACTION_NUMBER+i+SLIDER_OFFSET,TBM_SETRANGEMAX,FALSE,i == 0 ? 2000 : 100);
+                SendDlgItemMessageW(window,IDC_AUDIO_REACTION_NUMBER+i,EM_SETLIMITTEXT,32,0);
+            }
             for(int i = 0; i < 8; ++i) {
                 SendDlgItemMessageW(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET,TBM_SETRANGEMIN,FALSE,i == 7 ? -500 : 0);
                 SendDlgItemMessageW(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET,TBM_SETRANGEMAX,FALSE,i == 7 ? 500 : i == 6 ? 2000 : 1000);
@@ -141,7 +189,8 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
         if(context->updating) return FALSE;
         if(message == WM_HSCROLL && lparam) {
             const int id = GetDlgCtrlID(reinterpret_cast<HWND>(lparam))-SLIDER_OFFSET;
-            if(id >= IDC_AUDIO_NUMBER && id < IDC_AUDIO_NUMBER+8) {
+            if((id >= IDC_AUDIO_NUMBER && id < IDC_AUDIO_NUMBER+8) ||
+               (id >= IDC_AUDIO_REACTION_NUMBER && id < IDC_AUDIO_REACTION_NUMBER+5)) {
                 SetDlgItemInt(window,id,static_cast<UINT>(SendMessageW(reinterpret_cast<HWND>(lparam),TBM_GETPOS,0,0)),TRUE);
                 return TRUE;
             }
@@ -151,11 +200,18 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
         if(id == IDCANCEL) { EndDialog(window,IDCANCEL); return TRUE; }
         if(id == IDOK) { context->Validate(window); EndDialog(window,IDOK); return TRUE; }
         if(code == EN_CHANGE && id >= IDC_AUDIO_NUMBER && id < IDC_AUDIO_NUMBER+8) { context->ReadNumber(window,id-IDC_AUDIO_NUMBER,false); return TRUE; }
+        if(code == EN_CHANGE && id >= IDC_AUDIO_REACTION_NUMBER && id < IDC_AUDIO_REACTION_NUMBER+5) {
+            context->ReadNumber(window,id-IDC_AUDIO_REACTION_NUMBER,false,true); return TRUE;
+        }
         const auto previous = context->settings;
         if(code == CBN_SELCHANGE && id == IDC_AUDIO_MODE) {
             try { context->Validate(window); }
             catch(...) { SendDlgItemMessageW(window,id,CB_SETCURSEL,context->settings.mode,0); throw; }
             context->settings.mode = static_cast<UINT>(SendDlgItemMessageW(window,id,CB_GETCURSEL,0,0));
+        } else if(code == CBN_SELCHANGE && id == IDC_AUDIO_SOURCE) {
+            context->settings.responseSource = static_cast<UINT>(SendDlgItemMessageW(window,id,CB_GETCURSEL,0,0));
+        } else if(code == BN_CLICKED && id >= IDC_AUDIO_BRIGHTNESS && id <= IDC_AUDIO_COLOR) {
+            context->Switch(id-IDC_AUDIO_BRIGHTNESS) = IsDlgButtonChecked(window,id) == BST_CHECKED;
         } else if(code == CBN_SELCHANGE && id == IDC_AUDIO_DEVICE) {
             const auto selected = SendDlgItemMessageW(window,id,CB_GETCURSEL,0,0);
             if(selected < 0 || static_cast<size_t>(selected) >= context->devices.size()) return TRUE;

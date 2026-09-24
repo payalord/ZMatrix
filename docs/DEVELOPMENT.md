@@ -19,7 +19,8 @@ Z. Shaker, 2001-2002. Retain source notices; see [LICENSE.TXT](../LICENSE.TXT).
   entry points remain; new functionality uses additional exports.
 - `Audio`: WASAPI capture, analysis, color mappings and persistence.
   `AudioRuntime.cpp` connects it to the application. The capture worker never
-  calls the rendering COM object; the UI/rendering thread applies coefficients.
+  calls the rendering COM object; the UI/rendering thread applies coefficients
+  and transient motion overrides through `IzsMatrixMotion.h`.
 - `MsgHook`, `RegistryListenerThread`, `TopLevelListenerWindow`: Windows
   notifications and screensaver input handling.
 - `ScreenSaver`: `ZMatrixSS.scr`, which communicates with the running
@@ -64,6 +65,44 @@ Configuration preview is reversible. The outer dialog persists audio settings
 on acceptance; Cancel restores animation and audio previews. Animation CFGs
 and Audio.cfg are separate formats. Legacy Winamp names remain only for
 configuration compatibility, not as playback dependencies.
+
+## Audio analysis and response
+
+`AudioResponse` selects the analysis needed by active influences and smooths
+their envelopes using elapsed time, independent of Refresh time. RMS energy
+includes all samples between analysis updates, not only the last FFT window.
+Bass uses per-channel DC rejection and two low-pass stages around 200 Hz;
+opposite-phase channels do not cancel. Brightness scales RGB equally within
+the chosen palette. A soft RMS silence gate returns level-based effects to
+ordinary appearance and motion. Color modulation retains the legacy mappings,
+including their Base values in silence.
+
+The worker analyzes roughly every 50 ms. Level-only analysis needs no sample
+ring or FFT storage. Bass adds three filter values per channel. Waveform
+variation uses the sample ring; spectral centroid additionally uses a reused
+2048-point FFT buffer and cached Hann window/stage coefficients. Disabled
+analyses do not run, and unneeded buffers are released when the mask changes.
+Capture stops when no influence is active. No PCM is written to disk.
+
+The engine keeps two fractional budgets for motion: virtual update ticks and
+new stream births. Speed is limited to 1..2, birth rate to 0..2. Births are
+scheduled once per real frame, independently of the virtual tick count, and
+never exceed Maximum streams. Every intermediate tick is drawn to preserve
+special strings and cleanup. There are no new rendering surfaces or per-stream
+allocations. Normal multipliers retain the original single-update behavior.
+
+Audio.cfg version 2 stores each influence and its amount separately. Version 1
+loads with only legacy Color modulation enabled and no smoothing, preserving
+existing appearance. The executable/Config.dll host contract is version 2;
+reject other versions before copying Settings or Status structures. The five
+original Config exports and all existing COM interface vtables are unchanged.
+
+`AudioTests`, `AudioResponseTests`, `AudioRuntimeTests`, `ConfigDialogs` and
+`BlendStrengthTests` cover persistence/migration, analysis, independent effects,
+envelopes, endpoint failure, preview rollback and motion rendering. The response
+test links AudioSettings.cpp and AudioResponse.cpp; runtime tests also need
+AudioAnalysis.cpp, AudioCapture.cpp and AudioRuntime.cpp. Keep test output
+outside source directories. AudioCaptureSmoke's test tone is explicitly opt-in.
 
 ## Documentation and historical material
 

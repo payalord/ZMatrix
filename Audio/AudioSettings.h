@@ -4,6 +4,8 @@
 namespace audio {
 // Values are persisted in Audio.cfg; keep them stable when renaming effects.
 enum Mode { WaveformVariation = 0, SpectralCentroid = 1, ModeCount = 2 };
+enum ResponseSource { AudioLevel = 0, BassEnergy = 1, SourceCount = 2 };
+constexpr DWORD HostVersion = 2;
 struct Mapping {
     double baseScale[3], baseOffset[3], peakScale[3], peakOffset[3];
     double globalScale, globalOffset;
@@ -14,9 +16,13 @@ struct Settings {
     UINT mode;
     wchar_t deviceId[512]; // Empty means the default multimedia playback endpoint.
     Mapping profiles[ModeCount];
+    UINT responseSource;
+    double sensitivity, smoothing;
+    BOOL brightnessEnabled, speedEnabled, spawnEnabled, colorEnabled;
+    double brightnessStrength, speedStrength, spawnStrength;
 };
 enum State { Disabled, Starting, Capturing, Unavailable };
-struct Status { State state; HRESULT error; double descriptor; };
+struct Status { State state; HRESULT error; double descriptor, response; };
 struct HostApi {
     DWORD size, version;
     void *context;

@@ -194,6 +194,7 @@
   <ItemGroup>
     <ClCompile Include="Audio\AudioSettings.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
     <ClCompile Include="Audio\AudioAnalysis.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+    <ClCompile Include="Audio\AudioResponse.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
     <ClCompile Include="Audio\AudioCapture.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
     <ClCompile Include="AudioRuntime.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
     <ClCompile Include="DesktopHost.cpp" />
@@ -244,6 +245,8 @@
   <ItemGroup>
     <ClInclude Include="Audio\AudioSettings.h" />
     <ClInclude Include="Audio\AudioAnalysis.h" />
+    <ClInclude Include="Audio\AudioResponse.h" />
+    <ClInclude Include="zsMatrix\IzsMatrixMotion.h" />
     <ClInclude Include="Audio\AudioCapture.h" />
     <ClInclude Include="AudioRuntime.h" />
   </ItemGroup>

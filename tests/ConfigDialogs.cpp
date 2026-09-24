@@ -33,7 +33,7 @@ static DWORD __stdcall CommitAudio(void *, const audio::Settings *value) {
     audioSaved = *value; return ERROR_SUCCESS;
 }
 static void __stdcall AudioStatus(void *, audio::Status *out) { *out = {audioCurrent.enabled ? audio::Capturing : audio::Disabled,S_OK,0.25}; }
-static const audio::HostApi audioHost = {sizeof(audio::HostApi),1,nullptr,GetAudio,PreviewAudio,CommitAudio,AudioStatus};
+static const audio::HostApi audioHost = {sizeof(audio::HostApi),audio::HostVersion,nullptr,GetAudio,PreviewAudio,CommitAudio,AudioStatus};
 
 static void Capture(HWND window, const wchar_t *name) {
     if(captureFolder.empty()) return;
@@ -137,8 +137,31 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
             Click(window,accepted ? IDOK : IDCANCEL);
         } else if(GetDlgItem(window,IDC_AUDIO_ENABLED)) {
             Check(testingAudio,"Unexpected audio editor.");
+            Capture(window,L"audio-defaults");
             Click(window,IDC_AUDIO_ENABLED);
             Check(audioCurrent.enabled != FALSE,"Audio enable preview failed.");
+            Check(audioCurrent.brightnessEnabled && !audioCurrent.speedEnabled && !audioCurrent.spawnEnabled && !audioCurrent.colorEnabled,
+                "New audio defaults must preserve the palette and leave motion opt-in.");
+            Check(!IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_NUMBER)) && !IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_REACTION_NUMBER+3)),
+                "Disabled effects exposed active strength controls.");
+            Click(window,IDC_AUDIO_BRIGHTNESS); Click(window,IDC_AUDIO_SPEED);
+            SetDlgItemTextW(window,IDC_AUDIO_REACTION_NUMBER+3,L"62.5");
+            Check(!audioCurrent.brightnessEnabled && audioCurrent.speedEnabled && audioCurrent.speedStrength == 0.625 && !audioCurrent.colorEnabled,
+                "Speed-only preview changed other influences.");
+            Click(window,IDC_AUDIO_SPEED); Click(window,IDC_AUDIO_SPAWN);
+            Check(!audioCurrent.speedEnabled && audioCurrent.spawnEnabled && audioCurrent.speedStrength == 0.625,"Toggling an effect lost its amount.");
+            Select(window,IDC_AUDIO_SOURCE,audio::BassEnergy);
+            SetDlgItemTextW(window,IDC_AUDIO_REACTION_NUMBER,L"550");
+            SetDlgItemTextW(window,IDC_AUDIO_REACTION_NUMBER+1,L"75");
+            SetDlgItemTextW(window,IDC_AUDIO_REACTION_NUMBER+4,L"101");
+            Check(audioCurrent.spawnStrength == 0.5,"Invalid stream strength was applied.");
+            const HWND spawnSlider = GetDlgItem(window,IDC_AUDIO_REACTION_NUMBER+4+SLIDER_OFFSET);
+            SendMessageW(spawnSlider,TBM_SETPOS,TRUE,40);
+            SendMessageW(window,WM_HSCROLL,TB_THUMBPOSITION,reinterpret_cast<LPARAM>(spawnSlider));
+            Check(audioCurrent.spawnStrength == 0.4 && audioCurrent.responseSource == audio::BassEnergy &&
+                audioCurrent.sensitivity == 5.5 && audioCurrent.smoothing == 0.75,"Response controls did not preview.");
+            Click(window,IDC_AUDIO_COLOR);
+            Check(IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_NUMBER)),"Color mapping controls remained disabled.");
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"37.5");
             Check(audioCurrent.profiles[audio::WaveformVariation].baseScale[0] == 0.375,"Fractional audio percentage lost.");
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"NaN");
@@ -254,6 +277,9 @@ int wmain(int argc,wchar_t **argv) {
             if(!accept) Check(priority==initialPriority && GetPriorityClass(GetCurrentProcess())==initialPriority,"Cancel did not restore process priority.");
         }
         testingAudio = true;
+        auto incompatibleHost = audioHost; incompatibleHost.version = 1;
+        Check(!configureWithAudio(matrix,refresh,priority,&incompatibleHost) && GetLastError() == ERROR_INVALID_PARAMETER,
+            "An incompatible settings ABI was accepted.");
         for(audioCase = 0; audioCase < 4; ++audioCase) {
             audioCurrent = audioSaved = audio::Defaults(); audioCommits = 0;
             const bool shouldAccept = audioCase == 0 || audioCase == 2;
@@ -261,6 +287,12 @@ int wmain(int argc,wchar_t **argv) {
             Check((audioCurrent.enabled != FALSE) == (audioCase == 2),"Parent Cancel failed to restore the original audio settings.");
             Check((audioSaved.enabled != FALSE) == (audioCase == 2),"Audio preview or Cancel unexpectedly persisted settings.");
             Check(audioCommits == (audioCase >= 2 ? 1 : 0),"Audio persisted before the parent accepted.");
+            for(const auto &state : {audioCurrent,audioSaved}) {
+                Check((state.spawnEnabled != FALSE) == (audioCase == 2) && (state.colorEnabled != FALSE) == (audioCase == 2) &&
+                    (state.brightnessEnabled != FALSE) == (audioCase != 2),"New influence switches were not restored/persisted together.");
+                Check(state.speedStrength == (audioCase == 2 ? 0.625 : 0.35) && state.sensitivity == (audioCase == 2 ? 5.5 : 4) &&
+                    state.responseSource == static_cast<UINT>(audioCase == 2 ? audio::BassEnergy : audio::AudioLevel),"New response amounts or source did not follow OK/Cancel.");
+            }
         }
         testingAudio = false;
         about(nullptr); Check(sawInfo && !failed,"About dialog failed.");

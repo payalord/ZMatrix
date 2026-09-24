@@ -39,6 +39,7 @@
 #include <tchar.h>
 #include "IzsMatrix.h"
 #include "IzsMatrixAppearance.h"
+#include "IzsMatrixMotion.h"
 #include <string>
 
 using namespace std;
@@ -171,7 +172,7 @@ protected:
 EXPIMP_TEMPLATE template class std::vector<_TCHAR>;
 EXPIMP_TEMPLATE template class std::vector<IzsMatrixStream *>;
 
-class zsMatrix : public IzsMatrix, public IzsMatrixAppearance, public IzsMatrixGlow
+class zsMatrix : public IzsMatrix, public IzsMatrixAppearance, public IzsMatrixGlow, public IzsMatrixMotion
 {
 public:
 
@@ -195,6 +196,9 @@ public:
 	unsigned __stdcall GetBlendStrength() const { return BlendStrength; }
 	void __stdcall SetGlowEnabled(BOOL enabled) { GlowEnabled = enabled != FALSE; }
 	BOOL __stdcall GetGlowEnabled() const { return GlowEnabled; }
+	void __stdcall SetAudioMotion(double speed, double spawn);
+	double __stdcall GetAudioSpeed() const { return AudioSpeed; }
+	double __stdcall GetAudioSpawn() const { return AudioSpawn; }
 
 
 	void __stdcall UpdateTarget(HWND hWnd,HBITMAP BGBITMAP);
@@ -371,6 +375,10 @@ public:
 		{
 			*ppObject=static_cast<IzsMatrixGlow*>(this);
 		}
+		else if (riid==IID_IZSMATRIXMOTION)
+		{
+			*ppObject=static_cast<IzsMatrixMotion*>(this);
+		}
 		else
 		{
 			return E_NOINTERFACE;
@@ -457,6 +465,8 @@ private:
 
 	unsigned BlendStrength = 100;
 	bool GlowEnabled = false;
+	// Fractional tick/birth budgets require no per-stream allocation.
+	double AudioSpeed = 1, AudioSpawn = 1, AudioTicks = 0, AudioBirths = 0;
 
 	HWND hWnd;
 
@@ -506,7 +516,7 @@ private:
 
 	void UpdateFontMeasurements(void);
 
-	void CreateDestroyStreams(void);
+	void CreateDestroyStreams(unsigned births = 1);
 	void UpdateStreams(void);
 	void DisplayStreams(HDC hdc);
 

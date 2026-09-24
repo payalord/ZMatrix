@@ -3,6 +3,7 @@
 #define NOMINMAX
 #include "../AudioRuntime.h"
 #include "../zsMatrix/IzsMatrix.h"
+#include "../zsMatrix/IzsMatrixMotion.h"
 #include <cstdio>
 #include <stdexcept>
 #include <string>
@@ -41,6 +42,7 @@ int wmain() {
         matrix->SetCoeffR1(9.0); UpdateAudioReaction(matrix);
         Check(matrix->GetCoeffR1() == 1 && matrix->GetCoeffB0() == 0,"Disabled audio did not restore ordinary coefficients.");
         settings.enabled = TRUE; settings.mode = audio::SpectralCentroid;
+        settings.colorEnabled = TRUE; settings.brightnessEnabled = FALSE; settings.smoothing = 0;
         settings.profiles[1].globalScale = 0; settings.profiles[1].globalOffset = 0.25;
         settings.profiles[1].peakOffset[2] = 99;
         Check(host->preview(host->context,&settings) == 0 && WaitFor(*host,audio::Capturing),"Cannot start default loopback.");
@@ -48,6 +50,17 @@ int wmain() {
         Check(matrix->GetCoeffR1() == 0.5 && matrix->GetCoeffG1() == 0.5 && matrix->GetCoeffB0() == 24.75,"Fractional coefficients did not reach the engine intact.");
         BYTE r,g,b,a; matrix->GetColor(r,g,b,a);
         Check(r == 17 && g == 83 && b == 201 && a == 231,"Audio changed the user's base colors.");
+        settings.colorEnabled = FALSE;
+        Check(host->preview(host->context,&settings) == 0 && WaitFor(*host,audio::Disabled),"Capture kept running with no active influences.");
+        ApplyAudioMotion(*matrix,2,0); UpdateAudioReaction(matrix);
+        IzsMatrixMotion *motion = nullptr;
+        Check(SUCCEEDED(matrix->QueryInterface(IID_IZSMATRIXMOTION,reinterpret_cast<void **>(&motion))),"Missing motion interface.");
+        const bool neutral = motion->GetAudioSpeed() == 1 && motion->GetAudioSpawn() == 1;
+        motion->Release();
+        Check(neutral && matrix->GetCoeffR1() == 1,"Inactive effects left appearance or motion overrides active.");
+        settings.brightnessEnabled = TRUE; settings.speedEnabled = TRUE; settings.spawnEnabled = TRUE;
+        settings.responseSource = audio::BassEnergy;
+        Check(host->preview(host->context,&settings) == 0 && WaitFor(*host,audio::Capturing),"Could not restart with independent bass effects.");
         wcscpy_s(settings.deviceId,L"ZMatrix-nonexistent-test-endpoint");
         Check(host->preview(host->context,&settings) == 0 && WaitFor(*host,audio::Unavailable),"Missing endpoint was not reported.");
         UpdateAudioReaction(matrix);

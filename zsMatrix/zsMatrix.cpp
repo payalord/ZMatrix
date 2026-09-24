@@ -1022,10 +1022,28 @@ zsMatrix &zsMatrix::operator=(const IzsMatrix &Other)
 int zsMatrix::Render(HDC hdc)
 {
 	if (!hdc) return false;
-	this->CreateDestroyStreams();
-	this->UpdateStreams();
-	this->DisplayStreams(hdc);
+	AudioBirths += AudioSpawn;
+	const unsigned births = static_cast<unsigned>(AudioBirths);
+	AudioBirths -= births;
+	this->CreateDestroyStreams(births);
+	AudioTicks += AudioSpeed;
+	const unsigned ticks = static_cast<unsigned>(AudioTicks);
+	AudioTicks -= ticks;
+	for (unsigned tick = 0; tick < ticks; ++tick)
+	{
+		this->UpdateStreams();
+		// Draw every intermediate row, including special strings and trail cleanup.
+		this->DisplayStreams(hdc);
+	}
 	return true;
+}
+
+void zsMatrix::SetAudioMotion(double speed, double spawn)
+{
+	AudioSpeed = _finite(speed) && speed >= 1 && speed <= 2 ? speed : 1;
+	AudioSpawn = _finite(spawn) && spawn >= 0 && spawn <= 2 ? spawn : 1;
+	if (AudioSpeed == 1) AudioTicks = 0;
+	if (AudioSpawn == 1) AudioBirths = 0;
 }
 
 void zsMatrix::DrawCharacter(HDC target, const zsCharDetails &character, bool mask) const
@@ -1994,7 +2012,7 @@ void zsMatrix::UpdateFontMeasurements(void)
 }
 //===========================================================================
 //===========================================================================
-void zsMatrix::CreateDestroyStreams(void)
+void zsMatrix::CreateDestroyStreams(unsigned births)
 {
 	unsigned int i;
 	int Width,Height;
@@ -2025,7 +2043,7 @@ void zsMatrix::CreateDestroyStreams(void)
 
 
 
-	if (this->StreamCount < this->MaxStream)
+	for (unsigned birth = 0; birth < births && this->StreamCount < this->MaxStream; ++birth)
 	{
 		//if (rand() < 200000)
 		for(i = 0; i < this->MaxStream; i++)

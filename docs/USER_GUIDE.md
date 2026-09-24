@@ -140,6 +140,47 @@ drive the selected output's reaction.
 
 ### Effects and response controls
 
+Each influence has its own checkbox. Brightness, Speed and New streams also
+have independent strength controls; unchecking an influence keeps its saved
+strength. A strength of 0% has no effect. Enable just the influences you want.
+
+- Brightness gently dims the chosen character colors during quieter passages
+  and approaches their original brightness during louder passages. It uses
+  equal RGB scaling, without adding colors or increasing them beyond the chosen
+  palette. At maximum strength, dimming can reach 25% of the original brightness.
+- Speed smoothly accelerates the streams, preserving their individual speed
+  differences. Maximum strength allows up to twice the normal speed. It does
+  not change Refresh time or the saved Speed variance.
+- New streams varies how often new streams appear: fewer in quieter passages,
+  more in louder passages. Maximum strength ranges from zero to twice the normal
+  birth rate. Existing streams finish naturally, and Maximum streams still
+  applies. This changes the arrival rate, not the length of existing trails.
+- Color modulation enables the older RGB mappings described below. It can
+  change the palette and works independently of the other three influences.
+
+Source selects Audio level (overall loudness, measured as RMS) or Bass energy
+(low-frequency energy). It controls Brightness, Speed and New streams; the
+color mapping has its own Effect selector. Bass energy follows bass activity,
+not a detected musical tempo or a guaranteed beat.
+
+Sensitivity (%) multiplies the level/bass response: 100% means unchanged,
+400% means four times the measured level. Increase it for quiet playback or
+lower it if the response stays near 100%. Smoothness (%) softens transitions,
+including Color modulation. Motion always has a short smoothing period to
+avoid abrupt speed jumps; 0% gives its fastest response.
+
+After sustained silence, brightness and motion gradually return to their
+ordinary values. The older Color modulation mapping retains its Base behavior
+in silence. Changes affect newly drawn characters; existing trails keep their
+pixels until redrawn or cleared.
+
+For a new configuration, audio reaction is disabled. Brightness is the only
+influence selected when it is first enabled. Speed, New streams and Color
+modulation are opt-in. Faster motion and more streams add drawing work; modest
+strengths are usually more suitable for a desktop background.
+
+### Color modulation
+
 Waveform variation reacts to differences between adjacent audio samples. Both
 level and frequency affect it; it is not simply a volume meter.
 
@@ -158,27 +199,29 @@ the mapping moves from Base to Peak.
 
 ### Keeping the original palette
 
-Disable audio reaction to use ordinary rendering colors without audio
-adjustments. To keep audio enabled with an unchanged mapping, set both Base
-and Peak R/G/B to 100% and both Offset colors to black. With these values,
-audio does not change the colors.
-
-For a brightness-oriented effect, keep R, G and B scales equal within Base,
-keep them equal within Peak, and keep both offsets black. Large values can
-still clip channels and change the apparent hue. Wallpaper blending influences
-the final image independently of audio.
+Leave Color modulation unchecked to keep the selected hues. Enable Brightness
+for a pulse in those hues, or leave Brightness unchecked too if you want only
+motion changes with completely unchanged character colors. Wallpaper blending
+influences the final image independently of audio; bitwise blending can change
+the apparent hue even when the character's RGB channels are scaled equally.
 
 ### Device status and old settings
 
 The status text reports capture state or an error. If nothing reacts, check
 that the correct output is selected and sound is playing through it. If an
 output is disconnected, select an available output or the default output.
-When capture is unavailable, the renderer uses its ordinary color mapping
-instead of leaving old audio coefficients active.
+When capture is unavailable, the renderer immediately uses ordinary appearance
+and motion. Capture stops when no influence is active, including when all
+selected strengths are zero.
 
 Import legacy Winamp settings reads an existing vis_zmx.cfg mapping. It does
-not install or require Winamp. Old section names remain for compatibility;
-current playback capture is built into ZMatrix.
+not install or require Winamp. Import enables Color modulation but leaves the
+master capture switch and other influences unchanged. Old section names remain
+for compatibility; current playback capture is built into ZMatrix.
+
+Existing Audio.cfg version 1 files retain their previous color behavior when
+loaded: Color modulation is selected, the three new influences are off, and
+Smoothness is 0%. They are saved in version 2 format when settings are accepted.
 
 ## Saving, loading and resetting settings
 
@@ -195,7 +238,7 @@ Each Windows user's files are in `%APPDATA%\.ZMatrix`:
 - ZMatrix.cfg: normal animation settings.
 - ZMatrixScreenSaver.cfg: optional screensaver animation settings.
 - ZMatrixMisc.cfg: additional startup/screensaver preferences.
-- Audio.cfg: audio output, enable state and effect mappings.
+- Audio.cfg: audio output, independent influences, response controls and color mappings.
 
 Paste `%APPDATA%\.ZMatrix` into File Explorer's address bar to find the directory.
 For a complete reset, exit ZMatrix, back up this directory and rename it. The

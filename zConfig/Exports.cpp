@@ -42,7 +42,7 @@ extern "C" int __stdcall LaunchConfigForm(IzsMatrix *matrix, unsigned &refresh, 
     return LaunchConfig(matrix,refresh,priority,nullptr);
 }
 extern "C" int __stdcall LaunchConfigFormWithAudio(IzsMatrix *matrix, unsigned &refresh, DWORD &priority, const audio::HostApi *host) {
-    if(!host || host->size != sizeof(*host) || host->version != 1 || !host->get || !host->preview || !host->commit || !host->status) {
+    if(!host || host->size != sizeof(*host) || host->version != audio::HostVersion || !host->get || !host->preview || !host->commit || !host->status) {
         SetLastError(ERROR_INVALID_PARAMETER); return 0;
     }
     return LaunchConfig(matrix,refresh,priority,host);

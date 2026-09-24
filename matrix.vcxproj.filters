@@ -67,10 +67,13 @@
   <ItemGroup>
     <ClInclude Include="Audio\AudioSettings.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Audio\AudioAnalysis.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Audio\AudioResponse.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="zsMatrix\IzsMatrixMotion.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="Audio\AudioCapture.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="AudioRuntime.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="Audio\AudioSettings.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Audio\AudioAnalysis.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Audio\AudioResponse.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="Audio\AudioCapture.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="AudioRuntime.cpp"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>

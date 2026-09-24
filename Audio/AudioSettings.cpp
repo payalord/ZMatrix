@@ -20,6 +20,9 @@ Settings Defaults() {
     variation.peakOffset[0] = 128; variation.peakOffset[1] = variation.peakOffset[2] = 255;
     variation.globalScale = 3; variation.globalOffset = -0.3;
     centroid.globalScale = 5;
+    s.sensitivity = 4; s.smoothing = 0.5;
+    s.brightnessEnabled = TRUE;
+    s.brightnessStrength = 0.5; s.speedStrength = 0.35; s.spawnStrength = 0.5;
     return s;
 }
 static bool Range(double value, double low, double high) {
@@ -27,7 +30,11 @@ static bool Range(double value, double low, double high) {
 }
 bool Valid(const Settings &s) {
     if((s.enabled != FALSE && s.enabled != TRUE) || s.mode >= ModeCount ||
-       !wmemchr(s.deviceId, 0, _countof(s.deviceId))) return false;
+       !wmemchr(s.deviceId, 0, _countof(s.deviceId)) || s.responseSource >= SourceCount ||
+       !Range(s.sensitivity,0,20) || !Range(s.smoothing,0,1) ||
+       !Range(s.brightnessStrength,0,1) || !Range(s.speedStrength,0,1) || !Range(s.spawnStrength,0,1)) return false;
+    for(BOOL enabled : {s.brightnessEnabled,s.speedEnabled,s.spawnEnabled,s.colorEnabled})
+        if(enabled != FALSE && enabled != TRUE) return false;
     for(const auto &m : s.profiles) {
         for(int c = 0; c < 3; ++c)
             if(!Range(m.baseScale[c],0,10) || !Range(m.peakScale[c],0,10) ||
@@ -71,6 +78,8 @@ static bool Parse(std::wstring value, double *dest, int count, bool legacy) {
 // Keep these serialized names stable even when effect names change.
 static const wchar_t *Sections[] = {L"VU Modulate", L"Frequency Modulate"};
 static const wchar_t *Keys[] = {L"BaseColorScales", L"BaseColorOffsets", L"PeakColorScales", L"PeakColorOffsets", L"GlobalScale", L"GlobalOffset"};
+static const wchar_t *ReactionKeys[] = {L"Sensitivity", L"Smoothing", L"BrightnessStrength", L"SpeedStrength", L"SpawnStrength"};
+static const wchar_t *SwitchKeys[] = {L"Brightness", L"Speed", L"NewStreams", L"ColorModulation"};
 DWORD Load(const wchar_t *path, Settings &settings, bool legacy) {
     try {
         const DWORD attr = GetFileAttributesW(path);
@@ -78,7 +87,8 @@ DWORD Load(const wchar_t *path, Settings &settings, bool legacy) {
         if(attr & FILE_ATTRIBUTE_DIRECTORY) return ERROR_INVALID_DATA;
         Settings next = legacy ? settings : Defaults();
         if(!legacy) {
-            if(Value(path,L"Audio",L"Version") != L"1") return ERROR_INVALID_DATA;
+            const auto version = Value(path,L"Audio",L"Version");
+            if(version != L"1" && version != L"2") return ERROR_INVALID_DATA;
             const auto enabled = Value(path,L"Audio",L"Enabled");
             const auto mode = Value(path,L"Audio",L"Mode");
             if((enabled != L"0" && enabled != L"1") || (mode != L"0" && mode != L"1")) return ERROR_INVALID_DATA;
@@ -86,6 +96,23 @@ DWORD Load(const wchar_t *path, Settings &settings, bool legacy) {
             const auto device = Value(path,L"Audio",L"Device");
             if(device.size() >= _countof(next.deviceId)) return ERROR_INVALID_DATA;
             wcscpy_s(next.deviceId, device.c_str());
+            if(version == L"1") {
+                // Preserve the appearance of an existing installation until the user opts in.
+                next.brightnessEnabled = FALSE; next.colorEnabled = TRUE; next.smoothing = 0;
+            } else {
+                const auto source = Value(path,L"Reaction",L"Source");
+                if(source != L"0" && source != L"1") return ERROR_INVALID_DATA;
+                next.responseSource = source == L"1" ? BassEnergy : AudioLevel;
+                double *values[] = {&next.sensitivity,&next.smoothing,&next.brightnessStrength,&next.speedStrength,&next.spawnStrength};
+                for(int i = 0; i < 5; ++i)
+                    if(!Parse(Value(path,L"Reaction",ReactionKeys[i]),values[i],1,false)) return ERROR_INVALID_DATA;
+                BOOL *switches[] = {&next.brightnessEnabled,&next.speedEnabled,&next.spawnEnabled,&next.colorEnabled};
+                for(int i = 0; i < 4; ++i) {
+                    const auto value = Value(path,L"Reaction",SwitchKeys[i]);
+                    if(value != L"0" && value != L"1") return ERROR_INVALID_DATA;
+                    *switches[i] = value == L"1";
+                }
+            }
         }
         bool found = false;
         for(int mode = 0; mode < ModeCount; ++mode) {
@@ -108,7 +135,12 @@ DWORD Save(const wchar_t *path, const Settings &s) {
     if(!Valid(s)) return ERROR_INVALID_DATA;
     try {
         std::wostringstream out; out.imbue(std::locale::classic()); out << std::setprecision(17);
-        out << L"\xFEFF[Audio]\r\nVersion=1\r\nEnabled=" << s.enabled << L"\r\nMode=" << s.mode << L"\r\nDevice=" << s.deviceId << L"\r\n";
+        out << L"\xFEFF[Audio]\r\nVersion=2\r\nEnabled=" << s.enabled << L"\r\nMode=" << s.mode << L"\r\nDevice=" << s.deviceId << L"\r\n";
+        out << L"\r\n[Reaction]\r\nSource=" << s.responseSource << L"\r\n";
+        const double values[] = {s.sensitivity,s.smoothing,s.brightnessStrength,s.speedStrength,s.spawnStrength};
+        const BOOL switches[] = {s.brightnessEnabled,s.speedEnabled,s.spawnEnabled,s.colorEnabled};
+        for(int i = 0; i < 5; ++i) out << ReactionKeys[i] << L"=" << values[i] << L"\r\n";
+        for(int i = 0; i < 4; ++i) out << SwitchKeys[i] << L"=" << switches[i] << L"\r\n";
         for(int mode = 0; mode < ModeCount; ++mode) {
             const auto &m = s.profiles[mode];
             const double *fields[] = {m.baseScale,m.baseOffset,m.peakScale,m.peakOffset,&m.globalScale,&m.globalOffset};

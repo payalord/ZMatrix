@@ -19,8 +19,8 @@ static audio::PcmFormat Format(unsigned rate, unsigned channels, unsigned bits =
     f.nBlockAlign = static_cast<WORD>(channels*bits/8); f.nAvgBytesPerSec = rate*f.nBlockAlign;
     audio::PcmFormat result; Check(result.Read(f),"Supported PCM format rejected."); return result;
 }
-static audio::Descriptors Tone(unsigned rate, unsigned channels, double frequency, double amplitude, bool reversed = false) {
-    auto format = Format(rate,channels); audio::Analyzer analyzer(format);
+static audio::Descriptors Tone(unsigned rate, unsigned channels, double frequency, double amplitude, bool reversed = false, unsigned mask = audio::AnalyzeLegacy) {
+    auto format = Format(rate,channels); audio::Analyzer analyzer(format,mask);
     std::vector<float> pcm(8192*channels);
     for(unsigned i = 0; i < 8192; ++i) for(unsigned c = 0; c < channels; ++c)
         pcm[i*channels+c] = static_cast<float>(amplitude*std::sin(6.283185307179586*frequency*i/rate)*(reversed && c%2 ? -1 : 1));
@@ -54,11 +54,30 @@ int wmain() {
         settings.enabled = TRUE; settings.mode = audio::SpectralCentroid;
         wcscpy_s(settings.deviceId,L"{endpoint-\x65e5\x672c}");
         settings.profiles[0].baseScale[1] = 0.375; settings.profiles[1].globalOffset = -0.125;
+        settings.responseSource = audio::BassEnergy; settings.speedEnabled = TRUE; settings.spawnEnabled = TRUE;
+        settings.brightnessEnabled = FALSE; settings.colorEnabled = TRUE;
+        settings.sensitivity = 6.5; settings.smoothing = 0.625;
+        settings.brightnessStrength = 0.8; settings.speedStrength = 0.375; settings.spawnStrength = 0.125;
         Check(audio::Save(file.c_str(),settings) == 0,"Audio settings save failed.");
         auto loaded = audio::Defaults();
         Check(audio::Load(file.c_str(),loaded) == 0 && loaded.enabled && loaded.mode == audio::SpectralCentroid &&
             wcscmp(loaded.deviceId,settings.deviceId) == 0 && loaded.profiles[0].baseScale[1] == 0.375 &&
             loaded.profiles[1].globalOffset == -0.125,"Unicode settings or separate profiles failed to round-trip.");
+        Check(loaded.responseSource == audio::BassEnergy && loaded.speedEnabled && loaded.spawnEnabled && !loaded.brightnessEnabled &&
+            loaded.colorEnabled && loaded.sensitivity == 6.5 && loaded.smoothing == 0.625 && loaded.brightnessStrength == 0.8 &&
+            loaded.speedStrength == 0.375 && loaded.spawnStrength == 0.125,"Independent response settings did not round-trip.");
+        Check(WritePrivateProfileStringW(L"Audio",L"Version",L"1",file.c_str()) &&
+            WritePrivateProfileStringW(L"Reaction",nullptr,nullptr,file.c_str()),"Cannot create version 1 fixture.");
+        Check(audio::Load(file.c_str(),loaded) == 0 && loaded.enabled && loaded.colorEnabled && !loaded.brightnessEnabled &&
+            !loaded.speedEnabled && !loaded.spawnEnabled && loaded.smoothing == 0 && loaded.profiles[0].baseScale[1] == 0.375,
+            "Version 1 migration changed the original color effect or enabled new influences.");
+        Check(audio::Save(file.c_str(),settings) == 0,"Cannot restore version 2 fixture.");
+        for(const auto bad : {L"nan",L"1.001",L"-0.1",L"0.5junk"}) {
+            Check(WritePrivateProfileStringW(L"Reaction",L"SpeedStrength",bad,file.c_str()) != FALSE,"Cannot corrupt fixture.");
+            const auto previous = loaded;
+            Check(audio::Load(file.c_str(),loaded) == ERROR_INVALID_DATA && loaded.speedStrength == previous.speedStrength &&
+                loaded.colorEnabled == previous.colorEnabled,"Invalid reaction settings partially applied.");
+        }
         settings.enabled = FALSE;
         Check(audio::Save(file.c_str(),settings) == 0 && audio::Load(file.c_str(),loaded) == 0 && !loaded.enabled,"Replacing settings returned stale data.");
         HANDLE locked = CreateFileW(file.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
@@ -92,6 +111,36 @@ int wmain() {
                 Check(Near(quiet.spectralCentroid,low.spectralCentroid,1e-5),"Spectral centroid depends on amplitude.");
             }
         }
+        for(unsigned rate : {8000u,44100u,48000u,192000u}) for(unsigned channels : {1u,2u,6u}) {
+            const auto low = Tone(rate,channels,80,0.5,true,audio::AnalyzeAll);
+            const auto high = Tone(rate,channels,3000,0.5,true,audio::AnalyzeAll);
+            const auto quiet = Tone(rate,channels,80,0.05,true,audio::AnalyzeAll);
+            Check(Near(low.level,0.5/std::sqrt(2.0),0.004) && Near(high.level,low.level,0.004),"RMS depends on frequency, sample rate or channel phase.");
+            Check(Near(quiet.level,low.level*0.1,1e-7) && Near(quiet.bass,low.bass*0.1,1e-7),"Level/bass response does not follow amplitude.");
+            Check(low.bass > high.bass*20 && low.bass > low.level*0.7,"Bass filtering did not isolate low-frequency energy.");
+        }
+        audio::Analyzer levelOnly(Format(48000,1),audio::AnalyzeLevel);
+        std::vector<float> impulse(4800,0); impulse[0] = 1;
+        levelOnly.Push(reinterpret_cast<const BYTE *>(impulse.data()),4800,false);
+        auto measured = levelOnly.Analyze();
+        Check(Near(measured.level,std::sqrt(1.0/4800)) && measured.spectralCentroid == 0 && measured.waveformVariation == 0 && measured.bass == 0,
+            "RMS lost an early transient or calculated an unrequested descriptor.");
+        Check(levelOnly.Analyze().level == 0,"An analysis window reused old energy.");
+        levelOnly.SetMask(audio::AnalyzeCentroid);
+        Check(levelOnly.Analyze().spectralCentroid == 0,"A changed analysis mask retained stale samples.");
+        levelOnly.SetMask(audio::AnalyzeLevel | audio::AnalyzeBass);
+        std::vector<float> dc(48000,0.25f);
+        levelOnly.Push(reinterpret_cast<const BYTE *>(dc.data()),48000,false); levelOnly.Analyze();
+        levelOnly.Push(reinterpret_cast<const BYTE *>(dc.data()),48000,false); measured = levelOnly.Analyze();
+        Check(measured.bass < 1e-6 && Near(measured.level,0.25),"DC offset was mistaken for bass.");
+        std::fill(dc.begin(),dc.end(),0.0f);
+        for(int i = 0; i < 200; ++i) {
+            levelOnly.Push(reinterpret_cast<const BYTE *>(dc.data()),2400,false);
+            measured = levelOnly.Analyze();
+        }
+        Check(measured.bass == 0 && measured.level == 0,"Continuous digital silence retained filter tails.");
+        levelOnly.Reset(); levelOnly.Push(nullptr,4800,true); measured = levelOnly.Analyze();
+        Check(measured.bass == 0 && measured.level == 0,"Reset/silent packets retained level or bass energy.");
         audio::Analyzer analyzer(Format(48000,2));
         const float notFinite[] = {std::numeric_limits<float>::quiet_NaN(),std::numeric_limits<float>::infinity()};
         analyzer.Push(reinterpret_cast<const BYTE *>(notFinite),1,false);

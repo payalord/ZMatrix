@@ -50,15 +50,57 @@ double CalculateWaveformVariation(const unsigned char *samples) {
     for(unsigned i = 1; i < 576; ++i) total += std::abs(int(samples[i])-int(samples[i-1]));
     return std::min(total/288,255u)/255.0;
 }
-Analyzer::Analyzer(const PcmFormat &format) : format_(format), samples_(Capacity*format.channels) {}
-void Analyzer::Reset() { std::fill(samples_.begin(),samples_.end(),0.0f); cursor_ = available_ = 0; }
-void Analyzer::Push(const BYTE *data, unsigned frames, bool silent) {
-    for(unsigned i = 0; i < frames; ++i) {
-        for(unsigned c = 0; c < format_.channels; ++c)
-            samples_[cursor_*format_.channels+c] = silent ? 0 : format_.Sample(data+(i*format_.channels+c)*format_.bytes);
-        cursor_ = (cursor_+1)%Capacity;
-        available_ = std::min(available_+1,Capacity);
+Analyzer::Analyzer(const PcmFormat &format, unsigned mask) : format_(format) {
+    dcRate_ = 1-std::exp(-6.283185307179586*20/format.rate);
+    bassRate_ = 1-std::exp(-6.283185307179586*200/format.rate);
+    SetMask(mask);
+}
+void Analyzer::SetMask(unsigned mask) {
+    mask &= AnalyzeAll;
+    if(mask == mask_) return;
+    if(mask & AnalyzeLegacy) samples_.resize(Capacity*format_.channels);
+    else std::vector<float>().swap(samples_);
+    if(mask & AnalyzeBass) bassFilters_.resize(format_.channels);
+    else std::vector<BassFilter>().swap(bassFilters_);
+    if(mask & AnalyzeCentroid) {
+        constexpr unsigned size = 2048;
+        spectrum_.resize(size); window_.resize(size);
+        for(unsigned i = 0; i < size; ++i) window_[i] = 0.5-0.5*std::cos(6.283185307179586*i/(size-1));
+        for(unsigned stage = 0, length = 2; stage < 11; ++stage, length *= 2)
+            fftSteps_[stage] = std::polar(1.0,-6.283185307179586/length);
+    } else {
+        std::vector<std::complex<double>>().swap(spectrum_);
+        std::vector<double>().swap(window_);
     }
+    mask_ = mask; Reset();
+}
+void Analyzer::Reset() {
+    std::fill(samples_.begin(),samples_.end(),0.0f);
+    std::fill(bassFilters_.begin(),bassFilters_.end(),BassFilter{});
+    cursor_ = available_ = 0; levelEnergy_ = bassEnergy_ = 0; sampleCount_ = 0;
+}
+void Analyzer::Push(const BYTE *data, unsigned frames, bool silent) {
+    if(!mask_) return;
+    for(unsigned i = 0; i < frames; ++i) {
+        for(unsigned c = 0; c < format_.channels; ++c) {
+            const float sample = silent ? 0 : format_.Sample(data+(i*format_.channels+c)*format_.bytes);
+            if(mask_ & AnalyzeLegacy) samples_[cursor_*format_.channels+c] = sample;
+            if(mask_ & AnalyzeLevel) levelEnergy_ += double(sample)*sample;
+            if(mask_ & AnalyzeBass) {
+                // Per-channel energy avoids cancellation in opposite-phase stereo.
+                auto &filter = bassFilters_[c];
+                filter.dc += dcRate_*(sample-filter.dc);
+                filter.low += bassRate_*(sample-filter.dc-filter.low);
+                filter.low2 += bassRate_*(filter.low-filter.low2);
+                bassEnergy_ += filter.low2*filter.low2;
+            }
+        }
+        if(mask_ & AnalyzeLegacy) {
+            cursor_ = (cursor_+1)%Capacity;
+            available_ = std::min(available_+1,Capacity);
+        }
+    }
+    sampleCount_ += static_cast<unsigned long long>(frames)*format_.channels;
 }
 float Analyzer::At(unsigned channel, double age) const {
     const unsigned whole = static_cast<unsigned>(age);
@@ -67,7 +109,7 @@ float Analyzer::At(unsigned channel, double age) const {
     const float b = whole+1 < available_ ? samples_[((cursor_+Capacity-2-whole)%Capacity)*format_.channels+channel] : 0;
     return static_cast<float>(a+(b-a)*(age-whole));
 }
-static void Fft(std::vector<std::complex<double>> &values) {
+static void Fft(std::vector<std::complex<double>> &values, const std::complex<double> *steps) {
     const size_t n = values.size();
     for(size_t i = 1, j = 0; i < n; ++i) {
         size_t bit = n >> 1;
@@ -75,8 +117,8 @@ static void Fft(std::vector<std::complex<double>> &values) {
         j ^= bit;
         if(i < j) std::swap(values[i],values[j]);
     }
-    for(size_t length = 2; length <= n; length *= 2) {
-        const auto step = std::polar(1.0,-6.283185307179586/length);
+    for(size_t length = 2, stage = 0; length <= n; length *= 2, ++stage) {
+        const auto step = steps[stage];
         for(size_t i = 0; i < n; i += length) {
             std::complex<double> phase(1,0);
             for(size_t j = 0; j < length/2; ++j) {
@@ -86,31 +128,45 @@ static void Fft(std::vector<std::complex<double>> &values) {
         }
     }
 }
-Descriptors Analyzer::Analyze() const {
+Descriptors Analyzer::Analyze() {
     Descriptors result;
+    if(sampleCount_) {
+        result.level = std::sqrt(levelEnergy_/sampleCount_);
+        result.bass = std::sqrt(bassEnergy_/sampleCount_);
+    }
+    levelEnergy_ = bassEnergy_ = 0; sampleCount_ = 0;
+    // Stop decaying filter tails well before they reach denormal floating-point values.
+    // Silent endpoints may keep delivering zero-filled packets indefinitely.
+    for(auto &filter : bassFilters_) {
+        if(std::abs(filter.dc) < 1e-20) filter.dc = 0;
+        if(std::abs(filter.low) < 1e-20) filter.low = 0;
+        if(std::abs(filter.low2) < 1e-20) filter.low2 = 0;
+    }
     double weighted = 0, magnitude = 0;
     constexpr unsigned size = 2048;
-    std::vector<std::complex<double>> spectrum(size);
     for(unsigned c = 0; c < format_.channels; ++c) {
-        unsigned char waveform[576];
-        // A fixed 44.1 kHz reference keeps waveform variation independent of endpoint rate.
-        // Winamp waveform bytes contain signed 8-bit PCM in an unsigned array.
-        // Preserve the original Winamp VU effect's unsigned differences and zero-crossing jumps.
-        // See WACUP/vis_classic, Vis_Satan.cpp, AtAnStDirectRender.
-        for(unsigned i = 0; i < 576; ++i)
-            waveform[i] = static_cast<unsigned char>(static_cast<int>(std::clamp(
-                std::floor(128.0*At(c,(575-i)*format_.rate/44100.0)),-128.0,127.0)));
-        result.waveformVariation += CalculateWaveformVariation(waveform)/format_.channels;
+        if(mask_ & AnalyzeWaveform) {
+            unsigned char waveform[576];
+            // A fixed 44.1 kHz reference keeps waveform variation independent of endpoint rate.
+            // Winamp waveform bytes contain signed 8-bit PCM in an unsigned array.
+            // Preserve the original Winamp VU effect's unsigned differences and zero-crossing jumps.
+            // See WACUP/vis_classic, Vis_Satan.cpp, AtAnStDirectRender.
+            for(unsigned i = 0; i < 576; ++i)
+                waveform[i] = static_cast<unsigned char>(static_cast<int>(std::clamp(
+                    std::floor(128.0*At(c,(575-i)*format_.rate/44100.0)),-128.0,127.0)));
+            result.waveformVariation += CalculateWaveformVariation(waveform)/format_.channels;
+        }
+        if(!(mask_ & AnalyzeCentroid)) continue;
         for(unsigned i = 0; i < size; ++i)
-            spectrum[i] = At(c,size-1-i)*(0.5-0.5*std::cos(6.283185307179586*i/(size-1)));
-        Fft(spectrum);
+            spectrum_[i] = At(c,size-1-i)*window_[i];
+        Fft(spectrum_,fftSteps_);
         // The original Winamp frequency effect used half of a 576-bin spectrum. Keep its band at
         // 0..11.025 kHz, independent of the playback device's native sample rate.
         // Sum magnitudes per channel so opposite-phase stereo does not cancel.
         for(unsigned i = 0; i < size/2; ++i) {
             const double frequency = double(i)*format_.rate/size;
             if(frequency >= 11025) break;
-            const double value = std::abs(spectrum[i]);
+            const double value = std::abs(spectrum_[i]);
             weighted += frequency/11025*value; magnitude += value;
         }
     }
