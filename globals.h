@@ -99,13 +99,13 @@ using namespace std;
 
 #define DESKTOPREDRAW_EVENT_ID _T("DESKTOPREDRAW_EVENT-{1593B99A-5D70-41d5-A271-AE6113B50BB7}")
 
-#define HOMEPAGE_URL _T("http://zmatrix.n3.net")
-#define PROJECTSUMMARYPAGE_URL _T("http://sourceforge.net/projects/zmatrix/")
-#define SUPPORTREQUESTS_URL _T("http://sourceforge.net/tracker/?atid=493576&group_id=60257&func=browse")
-#define BUGREPORTS_URL _T("http://sourceforge.net/tracker/?atid=493575&group_id=60257&func=browse")
-#define FEATUREREQUESTS_URL _T("http://sourceforge.net/tracker/?atid=493578&group_id=60257&func=browse")
-#define DISCUSSIONFORUMS_URL _T("http://sourceforge.net/forum/?group_id=60257")
-#define DONATE_URL _T("http://zmatrix.n3.net/donate.html")
+#define HOMEPAGE_URL _T("https://payalord.github.io/ZMatrix/")
+#define PROJECTSUMMARYPAGE_URL _T("https://github.com/payalord/ZMatrix")
+#define SUPPORTREQUESTS_URL _T("https://github.com/payalord/ZMatrix/issues")
+#define BUGREPORTS_URL _T("https://github.com/payalord/ZMatrix/issues")
+#define FEATUREREQUESTS_URL _T("https://github.com/payalord/ZMatrix/issues")
+#define DISCUSSIONFORUMS_URL _T("https://github.com/payalord/ZMatrix/issues")
+#define DONATE_URL _T("https://zmatrix.sourceforge.net/donate.html")
 
 extern unsigned int RefreshTime;
 

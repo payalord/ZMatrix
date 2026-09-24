@@ -1,8 +1,0 @@
-<!--#define RELATIVE_SITE_ROOT ./-->
-
-<!--#define NT_INSTALLER_URL http://prdownloads.sourceforge.net/zmatrix/ZMatrixSetupNT_1_5_2.exe?download-->
-
-<!--#define 9X_INSTALLER_URL http://prdownloads.sourceforge.net/zmatrix/ZMatrixSetup9x_1_5_2.exe?download-->
-
-<!--#define SRC_URL http://prdownloads.sourceforge.net/zmatrix/ZMatrixSRC_1_5_2.zip?download-->
-

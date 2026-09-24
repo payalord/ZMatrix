@@ -70,14 +70,12 @@ INT_PTR Dialog(int resource, HWND owner, DLGPROC procedure, LPARAM context) {
 bool HelpCommand(HWND owner, unsigned command) {
     const wchar_t *url = nullptr;
     switch(command) {
-    case IDM_HELP: Open(owner, ModuleFolder() + L"ZMatrixHelp.chm"); return true;
-    case IDM_README: Open(owner, ModuleFolder() + L"ORIGINALREADME.md"); return true;
-    case IDM_HOMEPAGE: url = L"http://zmatrix.n3.net"; break;
-    case IDM_PROJECT: url = L"http://sourceforge.net/projects/zmatrix/"; break;
-    case IDM_SUPPORT: url = L"http://sourceforge.net/tracker/?atid=493576&group_id=60257&func=browse"; break;
-    case IDM_BUGS: url = L"http://sourceforge.net/tracker/?atid=493575&group_id=60257&func=browse"; break;
-    case IDM_FEATURES: url = L"http://sourceforge.net/tracker/?atid=493578&group_id=60257&func=browse"; break;
-    case IDM_DISCUSSION: url = L"http://sourceforge.net/forum/?group_id=60257"; break;
+    case IDM_HELP: ShowDocument(owner, false); return true;
+    case IDM_README: ShowDocument(owner, true); return true;
+    case IDM_HOMEPAGE: url = L"https://payalord.github.io/ZMatrix/"; break;
+    case IDM_PROJECT: url = L"https://github.com/payalord/ZMatrix"; break;
+    case IDM_SUPPORT: case IDM_BUGS: case IDM_FEATURES: case IDM_DISCUSSION:
+        url = L"https://github.com/payalord/ZMatrix/issues"; break;
     case IDM_DONATE: url = L"http://zmatrix.n3.net/donate.html"; break;
     case IDM_HIRE: ShowInfo(owner, true); return true;
     case IDM_ABOUT: ShowInfo(owner, false); return true;

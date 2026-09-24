@@ -56,6 +56,11 @@ extern "C" void __stdcall LaunchAboutForm(void *parent) {
     catch(...) { zconfig::ShowUnexpectedError(nullptr); }
     open = false;
 }
+extern "C" void __stdcall LaunchDocumentation(void *parent, BOOL readme) {
+    try { zconfig::ShowDocument(IsWindow(static_cast<HWND>(parent)) ? static_cast<HWND>(parent) : nullptr, readme != FALSE); }
+    catch(const zconfig::Error &error) { zconfig::ShowError(nullptr, error); }
+    catch(...) { zconfig::ShowUnexpectedError(nullptr); }
+}
 extern "C" void __stdcall LaunchHireForm(void *parent) {
     static bool open = false;
     if(open) return;

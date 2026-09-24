@@ -17,5 +17,6 @@ int Configure(IzsMatrix &matrix, unsigned &refresh, DWORD &priority, const audio
 bool EditAudio(HWND owner, const audio::HostApi &host);
 bool EditCharacters(HWND owner, Settings &settings);
 void ShowInfo(HWND owner, bool hire);
+void ShowDocument(HWND owner, bool readme);
 bool HelpCommand(HWND owner, unsigned command);
 }

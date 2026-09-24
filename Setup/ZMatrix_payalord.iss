@@ -13,8 +13,10 @@
 AppName=ZMatrix
 AppMutex=ZMatrix
 AppVerName=ZMatrix {#MAJOR_VER}.{#MINOR_VER}.{#RELEASE_VER}
-AppPublisher=Happy Dude
-AppPublisherURL=http://zmatrix.n3.net
+AppPublisher=Payalord
+AppPublisherURL=https://payalord.github.io/ZMatrix/
+AppSupportURL=https://github.com/payalord/ZMatrix/issues
+AppUpdatesURL=https://payalord.github.io/ZMatrix/
 AppVersion={#MAJOR_VER}.{#MINOR_VER}.{#RELEASE_VER}
 DefaultDirName={pf}\ZMatrix
 DefaultGroupName=ZMatrix
@@ -62,9 +64,13 @@ Source: "Config.dll"; DestDir: "{app}"; Flags: ignoreversion; Components: main
 Source: "zsMatrix.dll"; DestDir: "{app}"; Flags: ignoreversion regserver; Components: main
 Source: "MsgHook.dll"; DestDir: "{app}"; Flags: ignoreversion; Components: main
 Source: "Matrix Code Font.ttf"; DestDir: "{fonts}"; FontInstall: "Matrix Code Font"; Flags: uninsneveruninstall ignoreversion; Components: main
-Source: "ZMatrixHelp.chm"; DestDir: "{app}"; Components: main
-Source: "ORIGINALREADME.md"; DestDir: "{app}";Flags: isreadme; Components: main
-Source: "README.md"; DestDir: "{app}"; Components: main
+Source: "ORIGINALREADME.md"; DestDir: "{app}"; Flags: ignoreversion; Components: main
+Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion; Components: main
+Source: "BUILDING.md"; DestDir: "{app}"; Flags: ignoreversion; Components: main
+Source: "docs\USER_GUIDE.md"; DestDir: "{app}\docs"; Flags: ignoreversion; Components: main
+Source: "docs\DEVELOPMENT.md"; DestDir: "{app}\docs"; Flags: ignoreversion; Components: main
+Source: "docs\SCRIPTS.md"; DestDir: "{app}\docs"; Flags: ignoreversion; Components: main
+Source: "Matrix Code Font ReadMe.txt"; DestDir: "{app}"; Flags: ignoreversion; Components: main
 Source: "LICENSE.TXT"; DestDir: "{app}"; Components: main
 
 Source: "ScreenSaver\ZMatrixSS.scr"; DestDir: "{win}"; Flags: ignoreversion; Components: screensaver
@@ -84,9 +90,9 @@ Filename: "{app}\default.cfg"; Section: "Text"; Key: "FontName"; String: "MS Ser
 
 [Icons]
 Name: "{group}\ZMatrix"; Filename: "{app}\matrix.exe"; WorkingDir: "{app}"
-Name: "{group}\ZMatrix Help"; Filename: "{app}\ZMatrixHelp.chm"; WorkingDir: "{app}"
-Name: "{group}\ZMatrix Homepage"; Filename: "http://zmatrix.n3.net"
-Name: "{group}\ReadMe"; Filename: "{app}\ORIGINALREADME.md"
+Name: "{group}\ZMatrix Help"; Filename: "{app}\matrix.exe"; Parameters: "/help"; WorkingDir: "{app}"
+Name: "{group}\ZMatrix Homepage"; Filename: "https://payalord.github.io/ZMatrix/"
+Name: "{group}\ReadMe"; Filename: "{app}\matrix.exe"; Parameters: "/readme"; WorkingDir: "{app}"
 Name: "{group}\LICENSE"; Filename: "{app}\LICENSE.TXT"
 Name: "{group}\Uninstall ZMatrix"; Filename: "{uninstallexe}"
 Name: "{userstartup}\ZMatrix"; Filename: "{app}\matrix.exe"; WorkingDir: "{app}"; Tasks: autostart\user
@@ -107,6 +113,11 @@ Name: setsswhilerunning; Description: "Always set as &screensaver while running"
 
 [Run]
 Filename: "{app}\matrix.exe"; Description: "Launch ZMatrix"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\matrix.exe"; Parameters: "/readme"; Description: "View the ZMatrix readme"; Flags: nowait postinstall skipifsilent unchecked
+
+[InstallDelete]
+Type: files; Name: "{app}\ZMatrixHelp.chm"
+Type: files; Name: "{app}\ZMatrixHelp.chw"
 
 [UninstallDelete]
 Type: files; Name: "{win}\ZMatrixSS.ini"
@@ -122,68 +133,3 @@ begin
   TempResult := FileExists(ExpandConstant('{fonts}') + '\Matrix Code Font.ttf');
   Result := not TempResult;
 end;
-
-function IsShellDLLUpToDate(): Boolean;
-var
-  SearchPath, DLLPath : String;
-  VersionMS, VersionLS: Cardinal;
-begin
-  SearchPath := ExpandConstant('{sys}') + ';' + ExpandConstant('{win}');
-  DLLPath := FileSearch('shell32.dll',SearchPath);
-  
-  if Length(DLLPath) < 1  then
-  begin
-    Result := false;
-  end else
-  begin
-    if GetVersionNumbers(DLLPath,VersionMS,VersionLS) then
-    begin
-    if VersionMS > 4 then
-      Result := true
-    else if VersionMS < 4 then
-        Result := false
-      else
-      begin
-        if VersionLS < 71 then
-          Result := false
-        else
-          Result := true
-      end;
-    end else
-    begin
-      Result := false;
-    end;
-  end;
-end;
-
-function InitializeSetup(): Boolean;
-begin
-  if not IsShellDLLUpToDate then
-  begin
-    MsgBox('ZMatrix requires the ''Windows Desktop Update'' provided by Microsoft to be installed.' +
-           '  ZMatrix cannot continue installing without this update.' +
-           '  Please install the desktop udpate, then try installing ZMatrix again'
-           , mbInformation, MB_OK);
-    Result := false;
-  end else
-    Result := true;
-
-#ifdef UPGRADE
-{
-  if ( FontDoesntExist ) then
-  begin
-    Result := (MsgBox('This is an UPGRADE version of ZMatrix, and it doesn''t seem as though you''ve got the required previous version installed.' +
-                      '  If you don''t have the required previous version, you should click No below then download and install the FULL version of ZMatrix.' +
-                      '  Are you sure you want to continue with the installation?', mbConfirmation, MB_YESNO) = idYes);
-  end
-  else
-  begin
-    Result := True;
-  end;
-}
-#endif
-
-end;
-
-
-

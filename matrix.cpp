@@ -72,11 +72,40 @@ case(WM_SET_COEFF_##CoeffSuffix): \
 
 
 LRESULT CALLBACK WindowProc(HWND,UINT,WPARAM,LPARAM);
+// Documentation can run before the single-instance/desktop/audio initialization.
+static void OpenDocumentation(HWND owner, bool readme)
+{
+    wchar_t file[32768];
+    const DWORD length = GetModuleFileNameW(NULL,file,_countof(file));
+    HMODULE config = NULL;
+    if(length && length < _countof(file))
+    {
+        const std::wstring path(file,length);
+        config = LoadLibraryW((path.substr(0,path.find_last_of(L'\\')+1)+L"Config.dll").c_str());
+    }
+    typedef void (__stdcall *Launcher)(void *,BOOL);
+    const auto launch = config ? reinterpret_cast<Launcher>(GetProcAddress(config,"LaunchDocumentation")) : nullptr;
+    if(launch) launch(owner,readme ? TRUE : FALSE);
+    else MessageBoxW(owner,L"ZMatrix could not load its documentation window. Repair the installation.",L"ZMatrix",MB_OK|MB_ICONERROR);
+    if(config) FreeLibrary(config);
+}
 //===========================================================================
 //===========================================================================
 
 int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, int nWinMode)
 {
+    int argumentCount = 0;
+    LPWSTR *arguments = CommandLineToArgvW(GetCommandLineW(), &argumentCount);
+    const bool help = arguments && argumentCount == 2 && _wcsicmp(arguments[1],L"/help") == 0;
+    const bool readme = arguments && argumentCount == 2 && _wcsicmp(arguments[1],L"/readme") == 0;
+    if(arguments) LocalFree(arguments);
+    if(help || readme)
+    {
+        const HRESULT initialized = CoInitializeEx(NULL,COINIT_APARTMENTTHREADED);
+        OpenDocumentation(NULL,readme);
+        if(SUCCEEDED(initialized)) CoUninitialize();
+        return 0;
+    }
 	const HANDLE mutexHandle = CreateMutex(NULL, FALSE, _T("ZMatrix"));
 	const DWORD mutexError = GetLastError();
 	const std::unique_ptr<void, decltype(&CloseHandle)> instanceMutex(mutexHandle, CloseHandle);
@@ -569,7 +598,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 				break;
 			case(ID_HELP_REQ):
 				{
-					ShellExecute(ghWnd,_TEXT("open"),_TEXT("ZMatrixHelp.chm"), NULL, NULL, SW_SHOWNORMAL);
+                    OpenDocumentation(NULL,false);
 				}
 				break;
 			case(ID_HIRE):

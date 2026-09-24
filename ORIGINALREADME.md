@@ -1,5 +1,8 @@
 # ZMatrix
 
+This is the historical README from the original project. For the current fork,
+see [README.md](README.md) and the [user guide](docs/USER_GUIDE.md).
+
 ZMatrix is desktop enhancement program.  It attempts to reproduce the streaming
 characters shown in the film 'The Matrix' on your computer desktop.  Besides attempting
 to reproduce this look, the program also allows you to choose your own color, font,

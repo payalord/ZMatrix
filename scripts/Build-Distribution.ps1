@@ -31,13 +31,8 @@ $innoSetup = Find-Tool $InnoSetupPath 'ISCC.exe'
 
 Push-Location -LiteralPath $repoRoot
 try {
-    # Check external inputs before replacing any distribution files.
-    $requiredInputs = @('ZMatrixHelp.chm')
-    foreach ($required in $requiredInputs) {
-        if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
-            throw "Missing $required. Build it separately as described in BUILDING.md."
-        }
-    }
+    # Validate the actual offline documentation, not just the existence of a help archive.
+    & (Join-Path $PSScriptRoot 'Test-Documentation.ps1')
 
     if (-not $SkipBuild) {
         $msbuild = Find-Tool $MSBuildPath 'MSBuild.exe'
@@ -53,12 +48,16 @@ try {
         'Config.dll' = 'Config.dll'
         'MsgHook.dll' = 'MsgHook.dll'
         'README.md' = 'README.md'
+        'BUILDING.md' = 'BUILDING.md'
+        'docs\USER_GUIDE.md' = 'docs\USER_GUIDE.md'
+        'docs\DEVELOPMENT.md' = 'docs\DEVELOPMENT.md'
+        'docs\SCRIPTS.md' = 'docs\SCRIPTS.md'
         'LICENSE.TXT' = 'LICENSE.TXT'
         'ORIGINALREADME.md' = 'ORIGINALREADME.md'
         'JapaneseSet.txt' = 'JapaneseSet.txt'
         'MatrixCodeFontSet.txt' = 'MatrixCodeFontSet.txt'
         'Matrix Code Font.ttf' = 'Matrix Code Font.ttf'
-        'ZMatrixHelp.chm' = 'ZMatrixHelp.chm'
+        'Matrix Code Font ReadMe.txt' = 'Matrix Code Font ReadMe.txt'
         'ScreenSaver\ZMatrixSS.scr' = 'ScreenSaver\ZMatrixSS.scr'
     }
     foreach ($source in $files.Keys) {
@@ -79,6 +78,7 @@ try {
         Remove-Item -LiteralPath $stagePath -Recurse -Force
     }
     New-Item -ItemType Directory -Path (Join-Path $stagePath 'ScreenSaver') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $stagePath 'docs') -Force | Out-Null
     foreach ($source in $files.Keys) {
         Copy-Item -LiteralPath $source -Destination (Join-Path $stagePath $files[$source])
     }
