@@ -29,6 +29,7 @@
 //=========================================================================*/
 
 #include "globals.h"
+#include "AudioRuntime.h"
 #include "RegistryListenerThread.h"
 #include "TopLevelListenerWindow.h"
 
@@ -1341,6 +1342,8 @@ bool LaunchConfig(IzsMatrix *&ObjectToConfig)
 		else
 		{
 			ConfigFormLauncher ConfigLauncher = (ConfigFormLauncher)GetProcAddress(hDLL,"LaunchConfigForm");
+			typedef int (__stdcall *AudioConfigLauncher)(IzsMatrix *, unsigned &, DWORD &, const audio::HostApi *);
+			AudioConfigLauncher ConfigWithAudio = (AudioConfigLauncher)GetProcAddress(hDLL,"LaunchConfigFormWithAudio");
 
 			if(ConfigLauncher == NULL)
 			{
@@ -1381,7 +1384,8 @@ bool LaunchConfig(IzsMatrix *&ObjectToConfig)
 					int Temp = 0;
 					try
 					{
-						Temp = ConfigLauncher(ObjectToConfig,RefreshTime,Priority);
+						Temp = ConfigWithAudio && AudioHost() ? ConfigWithAudio(ObjectToConfig,RefreshTime,Priority,AudioHost()) :
+							ConfigLauncher(ObjectToConfig,RefreshTime,Priority);
 					}
 					catch(...)
 					{
@@ -1410,6 +1414,7 @@ bool LaunchConfig(IzsMatrix *&ObjectToConfig)
 						RetVal = true;
 					}
 
+					UpdateAudioReaction(ObjectToConfig);
 					if(PreviousPauseState)
 					{
 						KillTimer(ghWnd,REFRESH_TIMER_ID);
@@ -1680,6 +1685,7 @@ void BeforeClose(void)
 	if(!AlreadyClosing)
 	{
 		AlreadyClosing = true;
+		ShutdownAudio();
 
 		ClearDesktopMonitorHook(ghWnd);
 

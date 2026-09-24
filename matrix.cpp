@@ -29,6 +29,7 @@
 //=========================================================================*/
 
 #include "globals.h"
+#include "AudioRuntime.h"
 #include "zsMatrix/zsMatrix.h"
 #include "TopLevelListenerWindow.h"
 #include "RegistryListenerThread.h"
@@ -303,6 +304,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	LoadConfig(MatrixObject,RefreshTime);
 
 	ProcessMiscConfiguration();
+	InitializeAudio(AppConfigDirectoryPath.c_str());
 
 
 
@@ -412,6 +414,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 					}
 
 					EnforceDesktop();
+					UpdateAudioReaction(MatrixObject);
 
 					if(InScreenSaveMode)
 					{

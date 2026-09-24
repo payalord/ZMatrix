@@ -192,6 +192,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Audio\AudioSettings.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+    <ClCompile Include="Audio\AudioAnalysis.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+    <ClCompile Include="Audio\AudioCapture.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+    <ClCompile Include="AudioRuntime.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
     <ClCompile Include="DesktopHost.cpp" />
     <ClCompile Include="globals.cpp" />
     <ClCompile Include="matrix.cpp" />
@@ -236,6 +240,12 @@
       <Project>{4b124c2f-562d-4369-8a2f-0b8378030626}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Audio\AudioSettings.h" />
+    <ClInclude Include="Audio\AudioAnalysis.h" />
+    <ClInclude Include="Audio\AudioCapture.h" />
+    <ClInclude Include="AudioRuntime.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

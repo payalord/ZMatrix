@@ -64,4 +64,14 @@
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Audio\AudioSettings.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Audio\AudioAnalysis.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="Audio\AudioCapture.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="AudioRuntime.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="Audio\AudioSettings.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Audio\AudioAnalysis.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="Audio\AudioCapture.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="AudioRuntime.cpp"><Filter>Source Files</Filter></ClCompile>
+  </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Source Files">
@@ -43,5 +43,14 @@
   <ItemGroup>
     <ResourceCompile Include="zConfig.rc"><Filter>Resource Files</Filter></ResourceCompile>
     <None Include="zConfig.def"><Filter>Source Files</Filter></None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Audio\AudioSettings.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\Audio\AudioAnalysis.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\Audio\AudioCapture.h"><Filter>Header Files</Filter></ClInclude>
+    <ClCompile Include="..\Audio\AudioSettings.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\Audio\AudioAnalysis.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\Audio\AudioCapture.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="AudioDialog.cpp"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
 </Project>

@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include "../zsMatrix/IzsMatrix.h"
 #include "../zConfig/resource.h"
+#include "../Audio/AudioSettings.h"
 
 static void Check(bool ok, const char *text) { if(!ok) throw std::runtime_error(text); }
 static IzsMatrix *matrix;
@@ -20,6 +21,18 @@ static std::wstring captureFolder;
 static unsigned refresh;
 static DWORD priority;
 static bool fontDialog, colorDialog;
+static bool testingAudio;
+static int audioCase, audioCommits;
+static audio::Settings audioCurrent, audioSaved;
+static void __stdcall GetAudio(void *, audio::Settings *out) { *out = audioCurrent; }
+static DWORD __stdcall PreviewAudio(void *, const audio::Settings *value) { audioCurrent = *value; return ERROR_SUCCESS; }
+static DWORD __stdcall CommitAudio(void *, const audio::Settings *value) {
+    ++audioCommits;
+    if(audioCase == 3) return ERROR_ACCESS_DENIED;
+    audioSaved = *value; return ERROR_SUCCESS;
+}
+static void __stdcall AudioStatus(void *, audio::Status *out) { *out = {audioCurrent.enabled ? audio::Capturing : audio::Disabled,S_OK,0.25}; }
+static const audio::HostApi audioHost = {sizeof(audio::HostApi),1,nullptr,GetAudio,PreviewAudio,CommitAudio,AudioStatus};
 
 static void Capture(HWND window, const wchar_t *name) {
     if(captureFolder.empty()) return;
@@ -53,6 +66,19 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
     KillTimer(window,timer);
     try {
         if(GetDlgItem(window,IDC_MAX_STREAM)) {
+            if(testingAudio) {
+                Check(IsWindowEnabled(GetDlgItem(window,IDC_AUDIO)) != FALSE,"Audio editor button unavailable.");
+                Click(window,IDC_AUDIO);
+                Check((audioCurrent.enabled != FALSE) == (audioCase != 0),"Audio child Cancel failed to restore its snapshot.");
+                Capture(window,L"config-audio");
+                Click(window,audioCase == 1 ? IDCANCEL : IDOK);
+                if(audioCase == 3) {
+                    Check(IsWindow(window) && audioCommits == 1,"Save failure closed the parent dialog.");
+                    Click(window,IDCANCEL);
+                }
+                return;
+            }
+            Check(!IsWindowEnabled(GetDlgItem(window,IDC_AUDIO)),"Legacy ABI unexpectedly enabled the audio editor.");
             sawConfig = true;
             Capture(window,L"config");
             Check(GetDlgItemInt(window,IDC_MAX_STREAM,nullptr,FALSE)==137,"Initial stream value not shown.");
@@ -81,6 +107,33 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
                 Check(matrix->GetNumSpecialStringsInSet()==2 && std::wstring(matrix->GetValidSpecialString(1))==L"\x65e5\x672c; \\ text","Special string editor result lost.");
             } else Check(matrix->GetNumCharsInSet()==2,"Child dialog Cancel changed characters.");
             Click(window,accepted ? IDOK : IDCANCEL);
+        } else if(GetDlgItem(window,IDC_AUDIO_ENABLED)) {
+            Check(testingAudio,"Unexpected audio editor.");
+            Click(window,IDC_AUDIO_ENABLED);
+            Check(audioCurrent.enabled != FALSE,"Audio enable preview failed.");
+            SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"37.5");
+            Check(audioCurrent.profiles[audio::LegacyVU].baseScale[0] == 0.375,"Fractional audio percentage lost.");
+            SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"NaN");
+            Check(audioCurrent.profiles[audio::LegacyVU].baseScale[0] == 0.375,"Invalid audio edit applied.");
+            SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"37.5");
+            Select(window,IDC_AUDIO_MODE,audio::Frequency);
+            SetDlgItemTextW(window,IDC_AUDIO_NUMBER+6,L"650");
+            SetDlgItemTextW(window,IDC_AUDIO_NUMBER+7,L"-12.5");
+            Check(audioCurrent.profiles[audio::Frequency].globalScale == 6.5 && audioCurrent.profiles[audio::Frequency].globalOffset == -0.125,"Global audio mapping preview failed.");
+            Select(window,IDC_AUDIO_MODE,audio::LegacyVU);
+            Check(audioCurrent.profiles[audio::LegacyVU].baseScale[0] == 0.375 && audioCurrent.profiles[audio::LegacyVU].globalScale == 3,"Switching effects mixed their settings.");
+            Select(window,IDC_AUDIO_MODE,audio::Frequency);
+            Capture(window,L"audio");
+            Click(window,audioCase == 0 ? IDCANCEL : IDOK);
+        } else if(testingAudio && audioCase == 3) {
+            bool expected = false;
+            EnumChildWindows(window,[](HWND child,LPARAM context)->BOOL {
+                wchar_t text[256]; GetWindowTextW(child,text,_countof(text));
+                if(wcscmp(text,L"The audio settings could not be saved.") == 0) *reinterpret_cast<bool *>(context) = true;
+                return TRUE;
+            },reinterpret_cast<LPARAM>(&expected));
+            Check(expected,"Unexpected error during audio save-failure test.");
+            PostMessageW(window,WM_CLOSE,0,0);
         } else if(GetDlgItem(window,IDC_CHAR_TEXT)) {
             sawCharacters = true;
             SetDlgItemTextW(window,IDC_CHAR_TEXT,L"A, \\, , \\\\, \x0416");
@@ -149,9 +202,11 @@ int wmain(int argc,wchar_t **argv) {
         typedef int(__stdcall *Configure)(IzsMatrix *,unsigned &,DWORD &);
         typedef void(__stdcall *Info)(void *);
         auto configure=reinterpret_cast<Configure>(GetProcAddress(config,"LaunchConfigForm"));
+        typedef int(__stdcall *ConfigureWithAudio)(IzsMatrix *,unsigned &,DWORD &,const audio::HostApi *);
+        auto configureWithAudio=reinterpret_cast<ConfigureWithAudio>(GetProcAddress(config,"LaunchConfigFormWithAudio"));
         auto about=reinterpret_cast<Info>(GetProcAddress(config,"LaunchAboutForm"));
         auto hire=reinterpret_cast<Info>(GetProcAddress(config,"LaunchHireForm"));
-        Check(configure && about && hire,"Missing dialog exports.");
+        Check(configure && configureWithAudio && about && hire,"Missing dialog exports.");
         hook=SetWindowsHookExW(WH_CBT,Observe,nullptr,GetCurrentThreadId());
         Check(hook!=nullptr,"Cannot observe test windows.");
         for(bool accept : {false,true}) {
@@ -164,9 +219,19 @@ int wmain(int argc,wchar_t **argv) {
             Check(matrix->GetMaxStream()==(accept?173u:137u) && refresh==(accept?61u:41u),"Accept/Cancel did not preserve expected state.");
             if(!accept) Check(priority==initialPriority && GetPriorityClass(GetCurrentProcess())==initialPriority,"Cancel did not restore process priority.");
         }
+        testingAudio = true;
+        for(audioCase = 0; audioCase < 4; ++audioCase) {
+            audioCurrent = audioSaved = audio::Defaults(); audioCommits = 0;
+            const bool shouldAccept = audioCase == 0 || audioCase == 2;
+            Check((configureWithAudio(matrix,refresh,priority,&audioHost) != 0) == shouldAccept && !failed,"Audio dialog integration failed.");
+            Check((audioCurrent.enabled != FALSE) == (audioCase == 2),"Parent Cancel failed to restore the original audio settings.");
+            Check((audioSaved.enabled != FALSE) == (audioCase == 2),"Audio preview or Cancel unexpectedly persisted settings.");
+            Check(audioCommits == (audioCase >= 2 ? 1 : 0),"Audio persisted before the parent accepted.");
+        }
+        testingAudio = false;
         about(nullptr); Check(sawInfo && !failed,"About dialog failed.");
         sawInfo=false; hire(nullptr); Check(sawInfo && !failed,"Hire dialog failed.");
-        puts("PASS: Native settings/characters/About/Hire dialogs, live preview, validation, dependencies, OK/Cancel and priority restoration.");
+        puts("PASS: Native settings/characters/audio/About/Hire dialogs, preview, validation, nested OK/Cancel, save failure and priority restoration.");
     } catch(const std::exception &error) { fprintf(stderr,"FAIL: %s\n",error.what()); result=1; }
     if(hook) UnhookWindowsHookEx(hook);
     SetPriorityClass(GetCurrentProcess(),initialPriority);

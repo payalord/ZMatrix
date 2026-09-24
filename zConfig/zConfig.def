@@ -3,5 +3,6 @@ EXPORTS
     LaunchAboutForm
     LaunchHireForm
     LaunchConfigForm
+    LaunchConfigFormWithAudio
     SaveConfigToFile
     LoadConfigFromFile

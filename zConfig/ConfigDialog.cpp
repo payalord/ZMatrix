@@ -18,9 +18,11 @@ struct Editor {
     unsigned &refresh;
     DWORD &priority;
     Settings settings;
+    const audio::HostApi *audioHost;
+    bool audioEdited = false;
     bool updating = false;
     COLORREF customColors[16] = {};
-    Editor(IzsMatrix &m, unsigned &r, DWORD &p) : matrix(m), refresh(r), priority(p), settings(Capture(m,r,p)) {}
+    Editor(IzsMatrix &m, unsigned &r, DWORD &p, const audio::HostApi *a) : matrix(m), refresh(r), priority(p), settings(Capture(m,r,p)), audioHost(a) {}
     unsigned Number(int id) const {
         switch(id) {
         case IDC_MAX_STREAM: return settings.maxStream;
@@ -149,6 +151,7 @@ static INT_PTR CALLBACK ConfigProcedure(HWND window, UINT message, WPARAM wparam
             context = reinterpret_cast<Editor *>(lparam);
             SetWindowLongPtrW(window, DWLP_USER, lparam);
             InitDialog(window);
+            EnableWindow(GetDlgItem(window,IDC_AUDIO),context->audioHost != nullptr);
             for(const auto &n : Numbers) {
                 SendDlgItemMessageW(window, n.id+SLIDER_OFFSET, TBM_SETRANGEMIN, FALSE, n.minimum);
                 SendDlgItemMessageW(window, n.id+SLIDER_OFFSET, TBM_SETRANGEMAX, FALSE, n.maximum);
@@ -181,7 +184,20 @@ static INT_PTR CALLBACK ConfigProcedure(HWND window, UINT message, WPARAM wparam
             for(const auto &n : Numbers) if(n.id == id) { context->ReadNumber(window, n, false); return TRUE; }
         }
         if(id == IDCANCEL || id == IDM_EXIT) { EndDialog(window, IDCANCEL); return TRUE; }
-        if(id == IDOK) { context->Validate(window); EndDialog(window, IDOK); return TRUE; }
+        if(id == IDOK) {
+            context->Validate(window);
+            if(context->audioHost && context->audioEdited) {
+                audio::Settings audioSettings;
+                context->audioHost->get(context->audioHost->context,&audioSettings);
+                const DWORD error = context->audioHost->commit(context->audioHost->context,&audioSettings);
+                if(error) throw Error{L"The audio settings could not be saved.",error};
+            }
+            EndDialog(window, IDOK); return TRUE;
+        }
+        if(id == IDC_AUDIO && context->audioHost) {
+            if(EditAudio(window,*context->audioHost)) context->audioEdited = true;
+            return TRUE;
+        }
         if(id == IDM_SAVE) {
             context->Validate(window);
             const auto file = SelectFile(window, true, true);
@@ -247,19 +263,23 @@ static INT_PTR CALLBACK ConfigProcedure(HWND window, UINT message, WPARAM wparam
     if(message == WM_INITDIALOG) EndDialog(window, IDCANCEL);
     return TRUE;
 }
-int Configure(IzsMatrix &matrix, unsigned &refresh, DWORD &priority) {
-    Editor context(matrix, refresh, priority);
+int Configure(IzsMatrix &matrix, unsigned &refresh, DWORD &priority, const audio::HostApi *audioHost) {
+    Editor context(matrix, refresh, priority, audioHost);
+    audio::Settings originalAudio = {};
+    if(audioHost) audioHost->get(audioHost->context,&originalAudio);
     const Settings original = context.settings;
     const DWORD originalProcessPriority = GetPriorityClass(GetCurrentProcess());
     INT_PTR result = IDCANCEL;
     try { result = Dialog(IDD_CONFIG, nullptr, ConfigProcedure, reinterpret_cast<LPARAM>(&context)); }
     catch(...) {
+        if(audioHost) audioHost->preview(audioHost->context,&originalAudio);
         Apply(original, matrix, refresh, priority);
         if(IsWindow(matrix.GethWnd())) SetTimer(matrix.GethWnd(), 400, refresh, nullptr);
         SetPriorityClass(GetCurrentProcess(), originalProcessPriority);
         throw;
     }
     if(result != IDOK) {
+        if(audioHost) audioHost->preview(audioHost->context,&originalAudio);
         Apply(original, matrix, refresh, priority);
         if(IsWindow(matrix.GethWnd())) SetTimer(matrix.GethWnd(), 400, refresh, nullptr);
         SetPriorityClass(GetCurrentProcess(), originalProcessPriority);

@@ -164,6 +164,10 @@
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AudioDialog.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\Audio\AudioSettings.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\Audio\AudioAnalysis.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="..\Audio\AudioCapture.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="Settings.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="TextFormat.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="UI.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
@@ -182,6 +186,11 @@
   <ItemGroup>
     <ResourceCompile Include="zConfig.rc" />
     <None Include="zConfig.def" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Audio\AudioSettings.h" />
+    <ClInclude Include="..\Audio\AudioAnalysis.h" />
+    <ClInclude Include="..\Audio\AudioCapture.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
