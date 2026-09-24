@@ -16,9 +16,13 @@ struct DesktopHost
 
 // Discovery is read-only. The explicit root also allows isolated window tests.
 bool FindDesktopHost(HWND progman, DesktopHost& host);
-bool InitializeDesktopHost(DesktopHost& host);
+bool InitializeDesktopHost(DesktopHost& host, HWND progman = NULL);
 HWND CreateDesktopRenderWindow(const DesktopHost& host, HINSTANCE instance,
     LPCTSTR className, const RECT& screenBounds);
+// Returns a hidden, verified child, or NULL; GetLastError reports the failure.
+HWND WaitForDesktopRenderWindow(DesktopHost& host, HINSTANCE instance,
+    LPCTSTR className, const RECT& screenBounds, DWORD timeoutMs, HWND progman = NULL);
+bool IsDesktopRenderWindowReady(const DesktopHost& host, HWND window);
 bool PositionDesktopRenderWindow(const DesktopHost& host, HWND window,
     const RECT& screenBounds);
 void ReleaseDesktopHost(DesktopHost& host);

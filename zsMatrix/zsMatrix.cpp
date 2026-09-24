@@ -31,6 +31,7 @@
 #include "zsMatrix.h"
 #include <time.h>
 #include <math.h>
+#pragma comment(lib, "msimg32.lib")
 
 // {65A36275-972A-4804-A1FA-53DB4E39DE26}
 static const GUID CLSID_ZSMATRIXSTREAM = 
@@ -86,28 +87,14 @@ if(this->RandomizedCleanupEnabled)\
 	static RECT ClearRect;\
 	int randomval = (rand()*this->SpacePad/RAND_MAX+this->Leading);\
 	this->CalcRectForNthBackChar(this->Streams[i],randomval,ClearRect);\
-	BitBlt(hdc,ClearRect.left,\
-			  ClearRect.top,\
-			  WIDTH(ClearRect),\
-			  HEIGHT(ClearRect),\
-			  this->hBGDC,\
-			  ClearRect.left,\
-			  ClearRect.top,\
-			  SRCCOPY);\
+	DrawBitmapCleanup(hdc, ClearRect, bitmapBounds);\
 }\
 \
 if(this->MonotonousCleanupEnabled)\
 {\
 	static RECT ClearRect;\
 	this->CalcRectForNthBackChar(this->Streams[i],this->BackTrace,ClearRect);\
-	BitBlt(hdc,ClearRect.left,\
-			  ClearRect.top,\
-			  WIDTH(ClearRect),\
-			  HEIGHT(ClearRect),\
-			  this->hBGDC,\
-			  ClearRect.left,\
-			  ClearRect.top,\
-			  SRCCOPY);\
+	DrawBitmapCleanup(hdc, ClearRect, bitmapBounds);\
 }
 
 
@@ -569,7 +556,7 @@ CoeffG1(Other.CoeffG1),CoeffG0(Other.CoeffG0),
 CoeffB1(Other.CoeffB1),CoeffB0(Other.CoeffB0),
 CoeffA1(Other.CoeffA1),CoeffA0(Other.CoeffA0),
 textHeight(Other.textHeight),textWidth(Other.textWidth),
-hWnd(Other.hWnd),BGMode(Other.BGMode),BlendMode(Other.BlendMode)
+hWnd(Other.hWnd),BGMode(Other.BGMode),BlendMode(Other.BlendMode),BlendStrength(Other.BlendStrength)
 {
 	this->RefCount = 0;
 
@@ -666,6 +653,7 @@ hWnd(Other.hWnd),BGMode(Other.BGMode),BlendMode(Other.BlendMode)
 //===========================================================================
 zsMatrix::zsMatrix(const IzsMatrix &Other)
 {
+	this->BlendStrength = ReadBlendStrength(Other);
 	this->RefCount = 0;
 	this->hWnd = Other.GethWnd();
 
@@ -862,6 +850,8 @@ zsMatrix::~zsMatrix()
 //===========================================================================
 zsMatrix &zsMatrix::operator=(const IzsMatrix &Other)
 {
+	if (static_cast<const IzsMatrix*>(this) == &Other) return *this;
+	this->BlendStrength = ReadBlendStrength(Other);
 
 	if ((this->hBackDC != NULL) && (0 == DeleteDC(this->hBackDC)))
 		PrintError("Failed to delete the back DC");
@@ -1028,10 +1018,57 @@ zsMatrix &zsMatrix::operator=(const IzsMatrix &Other)
 //===========================================================================
 int zsMatrix::Render(HDC hdc)
 {
+	if (!hdc) return false;
 	this->CreateDestroyStreams();
 	this->UpdateStreams();
 	this->DisplayStreams(hdc);
 	return true;
+}
+
+void zsMatrix::PresentBitmapCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds)
+{
+	const RECT &area = character.Rect;
+	if (BlendStrength == 100)
+	{
+		BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), hBackDC, area.left, area.top, SRCCOPY);
+		return;
+	}
+
+	// Reuse the existing scratch bitmap for a plain character on the chosen background.
+	// Blend only this character's rectangle with its legacy wallpaper-based colors.
+	FillRect(hTempSpaceDC, &area, hBGBrush);
+	SelectObject(hTempSpaceDC, character.Font);
+	SetTextColor(hTempSpaceDC, character.Color);
+	const int previousMode = SetBkMode(hTempSpaceDC, TRANSPARENT);
+	TextOut(hTempSpaceDC, character.TextPoint.x, character.TextPoint.y, &character.Char, 1);
+	SetBkMode(hTempSpaceDC, previousMode);
+	RECT clipped;
+	if (BlendStrength && IntersectRect(&clipped, &area, &bitmapBounds))
+	{
+		const BLENDFUNCTION blend = {AC_SRC_OVER, 0, static_cast<BYTE>((BlendStrength * 255 + 50) / 100), 0};
+		AlphaBlend(hTempSpaceDC, clipped.left, clipped.top, WIDTH(clipped), HEIGHT(clipped),
+			hBackDC, clipped.left, clipped.top, WIDTH(clipped), HEIGHT(clipped), blend);
+	}
+	BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), hTempSpaceDC, area.left, area.top, SRCCOPY);
+}
+
+void zsMatrix::DrawBitmapCleanup(HDC target, const RECT &area, const RECT &bitmapBounds)
+{
+	if (BlendStrength == 100)
+	{
+		BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), hBGDC, area.left, area.top, SRCCOPY);
+		return;
+	}
+	// Opaque text cleanup reveals the same proportion of wallpaper as the characters.
+	FillRect(hTempSpaceDC, &area, hBGBrush);
+	RECT clipped;
+	if (BlendStrength && IntersectRect(&clipped, &area, &bitmapBounds))
+	{
+		const BLENDFUNCTION blend = {AC_SRC_OVER, 0, static_cast<BYTE>((BlendStrength * 255 + 50) / 100), 0};
+		AlphaBlend(hTempSpaceDC, clipped.left, clipped.top, WIDTH(clipped), HEIGHT(clipped),
+			hBGDC, clipped.left, clipped.top, WIDTH(clipped), HEIGHT(clipped), blend);
+	}
+	BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), hTempSpaceDC, area.left, area.top, SRCCOPY);
 }
 //===========================================================================
 //===========================================================================
@@ -1955,6 +1992,9 @@ void zsMatrix::DisplayStreams(HDC hdc)
 	SelectObject(this->hBGDC,this->hBGBitmap);
 	SelectObject(this->hTempSpaceDC,this->hTempSpaceBitmap);
 	SelectObject(this->hBackDC,this->hBackBitmap);
+	RECT bitmapBounds = {};
+	if (this->BGMode == bgmodeBitmap && this->BlendStrength > 0 && this->BlendStrength < 100)
+		GetClipBox(this->hBackDC, &bitmapBounds);
 
 	if(this->BGMode == bgmodeBitmap)
 	{
@@ -1977,7 +2017,22 @@ void zsMatrix::DisplayStreams(HDC hdc)
 		SetBkColor(this->hBackDC,this->BGColorRef);
 
 
-		if(this->BGColor[3] < 128)
+		if(this->BlendStrength == 0)
+		{
+			// No wallpaper operations are needed at zero strength.
+			for (unsigned int i = 0; i < this->MaxStream; i++)
+			{
+				if (this->Streams[i]->GetStatus() && this->Streams[i]->GetNeedsDrawing())
+				{
+					CalcCurrentAndPreceedingCharDetails(this->Streams[i], BrightCharDetails, DimCharDetails);
+					PresentBitmapCharacter(hdc, BrightCharDetails, bitmapBounds);
+					PresentBitmapCharacter(hdc, DimCharDetails, bitmapBounds);
+					CommonCleanup();
+					this->Streams[i]->SetNeedsDrawing(false);
+				}
+			}
+		}
+		else if(this->BGColor[3] < 128)
 		{
 			switch(this->BlendMode)
 			{
@@ -2021,11 +2076,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 								   SRCINVERT);
 
 
-							BitBlt(hdc,BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
-								   WIDTH(BrightCharDetails.Rect),HEIGHT(BrightCharDetails.Rect),
-								   this->hBackDC,
-								   BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
-								   SRCCOPY);
+							PresentBitmapCharacter(hdc, BrightCharDetails, bitmapBounds);
 
 
 							//Second Operation -- Output another random character in a dimmer color
@@ -2056,11 +2107,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 								   SRCINVERT);
 
 
-							BitBlt(hdc,DimCharDetails.Rect.left,DimCharDetails.Rect.top,
-								   WIDTH(DimCharDetails.Rect),HEIGHT(DimCharDetails.Rect),
-								   this->hBackDC,
-								   DimCharDetails.Rect.left,DimCharDetails.Rect.top,
-								   SRCCOPY);
+							PresentBitmapCharacter(hdc, DimCharDetails, bitmapBounds);
 
 
 							//Third Operation -- Cleanup
@@ -2107,11 +2154,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 								   SRCAND);
 
 
-							BitBlt(hdc,BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
-								   WIDTH(BrightCharDetails.Rect),HEIGHT(BrightCharDetails.Rect),
-								   this->hBackDC,
-								   BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
-								   SRCCOPY);
+							PresentBitmapCharacter(hdc, BrightCharDetails, bitmapBounds);
 
 
 							//Second Operation -- Output another random character in a dimmer color
@@ -2137,11 +2180,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 								   SRCAND);
 
 
-							BitBlt(hdc,DimCharDetails.Rect.left,DimCharDetails.Rect.top,
-								   WIDTH(DimCharDetails.Rect),HEIGHT(DimCharDetails.Rect),
-								   this->hBackDC,
-								   DimCharDetails.Rect.left,DimCharDetails.Rect.top,
-								   SRCCOPY);
+							PresentBitmapCharacter(hdc, DimCharDetails, bitmapBounds);
 
 
 
@@ -2203,11 +2242,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 								   SRCAND);
 
 
-							BitBlt(hdc,BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
-								   WIDTH(BrightCharDetails.Rect),HEIGHT(BrightCharDetails.Rect),
-								   this->hBackDC,
-								   BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
-								   SRCCOPY);
+							PresentBitmapCharacter(hdc, BrightCharDetails, bitmapBounds);
 
 
 							//Second Operation -- Output another random character in a dimmer color
@@ -2246,11 +2281,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 								   SRCAND);
 
 
-							BitBlt(hdc,DimCharDetails.Rect.left,DimCharDetails.Rect.top,
-								   WIDTH(DimCharDetails.Rect),HEIGHT(DimCharDetails.Rect),
-								   this->hBackDC,
-								   DimCharDetails.Rect.left,DimCharDetails.Rect.top,
-								   SRCCOPY);
+							PresentBitmapCharacter(hdc, DimCharDetails, bitmapBounds);
 
 
 							//Third Operation -- Cleanup
@@ -2321,11 +2352,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 						   LastStepROP);
 
 
-					BitBlt(hdc,BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
-						   WIDTH(BrightCharDetails.Rect),HEIGHT(BrightCharDetails.Rect),
-						   this->hBackDC,
-						   BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
-						   SRCCOPY);
+					PresentBitmapCharacter(hdc, BrightCharDetails, bitmapBounds);
 
 
 
@@ -2353,11 +2380,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 						   LastStepROP);
 
 
-					BitBlt(hdc,DimCharDetails.Rect.left,DimCharDetails.Rect.top,
-						   WIDTH(DimCharDetails.Rect),HEIGHT(DimCharDetails.Rect),
-						   this->hBackDC,
-						   DimCharDetails.Rect.left,DimCharDetails.Rect.top,
-						   SRCCOPY);
+					PresentBitmapCharacter(hdc, DimCharDetails, bitmapBounds);
 
 
 

@@ -95,6 +95,7 @@ using namespace std;
 #define REFRESH_TIMER_ID 400
 
 #define SINGLE_CLICK_TIMER_ID 401
+#define DESKTOP_RETRY_TIMER_ID 402
 
 #define DESKTOPREDRAW_EVENT_ID _T("DESKTOPREDRAW_EVENT-{1593B99A-5D70-41d5-A271-AE6113B50BB7}")
 
@@ -134,7 +135,6 @@ extern HWND ghProgman;
 extern DesktopHost BackgroundHost;
 extern HWND ghShellDLL;
 extern HWND ghSysListView;
-extern bool LiteStepMode;
 
 extern NOTIFYICONDATA IconData;
 extern HRGN ValidRGN;
@@ -209,7 +209,7 @@ void ClearWallpaper(void);
 void ClearDesktopColor(void);
 void ClearDesktop(void);
 
-void EnforceDesktop(void);
+bool EnforceDesktop(void);
 
 typedef _tstring IgnoredWallpaperChangeElement;
 extern deque<IgnoredWallpaperChangeElement> WallpaperChangesToIgnore;

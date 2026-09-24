@@ -35,6 +35,7 @@
 #include "RegistryListenerThread.h"
 #include <stdio.h>
 #include <shlobj.h>
+#include <memory>
 //#include "hooks/hooks.h"
 
 #define WM_COEFF_GETTER(CoeffSuffix) \
@@ -76,7 +77,11 @@ LRESULT CALLBACK WindowProc(HWND,UINT,WPARAM,LPARAM);
 
 int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, int nWinMode)
 {
-	CreateMutex(NULL, FALSE,_T("ZMatrix"));
+	const HANDLE mutexHandle = CreateMutex(NULL, FALSE, _T("ZMatrix"));
+	const DWORD mutexError = GetLastError();
+	const std::unique_ptr<void, decltype(&CloseHandle)> instanceMutex(mutexHandle, CloseHandle);
+	// Also reserve the instance while waiting for Explorer, before the listener exists.
+	if (!instanceMutex || mutexError == ERROR_ALREADY_EXISTS) return 0;
 
 	// I need this because windows continously calls the screen saver to start the program
 	// in no time at all I would have 2000 instances of this code *shiver*
@@ -99,38 +104,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	gscreenLeft = GetSystemMetrics(SM_XVIRTUALSCREEN);
 
 	ValidRGN = CreateRectRgn(0,0,gscreenWidth,gscreenHeight);
-
-	//Find the desktop window classes
-	ghProgman = FindWindow(_TEXT("Progman"), NULL);
-
-	if(ghProgman != NULL)
-	{
-		if(!InitializeDesktopHost(BackgroundHost))
-		{
-			MessageBox(NULL, _T("ZMatrix could not find a desktop background layer. Please restart Explorer or sign in again and retry."), _T("ZMatrix"), MB_OK|MB_ICONERROR);
-			DeleteObject(ValidRGN);
-			return 1;
-		}
-		ghShellDLL = BackgroundHost.iconView;
-		ghSysListView = BackgroundHost.listView;
-	}
-	else
-	{
-		ghProgman = FindWindow(_TEXT("DesktopBackgroundClass"), NULL);
-
-		if(ghProgman != NULL)
-		{
-			ghShellDLL = FindWindowEx(ghProgman, 0, _TEXT("DeskFolder"), NULL);
-			ghSysListView = FindWindowEx(ghShellDLL,0,_TEXT("SysListView32"),NULL);
-			LiteStepMode = true;
-		}
-		else
-		{
-			ghShellDLL = NULL;
-			ghSysListView = NULL;
-		}
-	}
-
 
 	/* Define a window class */
 	wc.cbSize = sizeof(WNDCLASSEX);
@@ -159,54 +132,29 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	//CoInitialize(NULL);
 	CoInitializeEx(NULL,COINIT_APARTMENTTHREADED );
 
+	for (;;)
+	{
+		const RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
+		ghWnd = WaitForDesktopRenderWindow(BackgroundHost, hInstance, szWinName, bounds, 60000);
+		if (ghWnd) break;
+		if (GetLastError() == ERROR_CANCELLED || MessageBox(NULL,
+			_T("ZMatrix could not connect to the Windows desktop background. No animation has been started.\n\nChoose Retry to wait another minute, or Cancel to exit."),
+			_T("ZMatrix"), MB_RETRYCANCEL | MB_ICONINFORMATION) != IDRETRY)
+		{
+			ReleaseDesktopHost(BackgroundHost);
+			DeleteObject(ValidRGN);
+			UnregisterClass(szWinName,hInstance);
+			CoUninitialize();
+			return 1;
+		}
+	}
+	ghProgman = BackgroundHost.progman;
+	ghShellDLL = BackgroundHost.iconView;
+	ghSysListView = BackgroundHost.listView;
 	StoreOrigDesktop();
-
-	gSysTrayMenu  = LoadMenu(hInstance,MAKEINTRESOURCE(ID_SYSTRAYMENU));
+	gSysTrayMenu = LoadMenu(hInstance,MAKEINTRESOURCE(ID_SYSTRAYMENU));
 	gSysTrayPopup = GetSubMenu(gSysTrayMenu,0);
 	SetMenuDefaultItem(gSysTrayPopup,0,true);
-
-	if(BackgroundHost.parent)
-	{
-		RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
-		ghWnd = CreateDesktopRenderWindow(BackgroundHost,hInstance,szWinName,bounds);
-	}
-	else if(LiteStepMode)
-	{
-		if(ghProgman != NULL)
-		{
-			ghWnd = CreateWindowEx(WS_EX_TRANSPARENT,szWinName,_TEXT("Matrix Code"), WS_CHILDWINDOW | WS_OVERLAPPED |WS_CLIPSIBLINGS|WS_CLIPCHILDREN,0,0,gscreenWidth,gscreenHeight,ghProgman,NULL,hInstance,NULL);
-			EnableWindow(ghWnd,FALSE);
-			SetWindowPos(ghWnd,HWND_BOTTOM,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE);
-		}
-		else
-		{
-			ghWnd = CreateWindowEx(WS_EX_TRANSPARENT,szWinName,_TEXT("Matrix Code"), WS_CHILDWINDOW /*| WS_OVERLAPPED |WS_CLIPSIBLINGS*/|WS_CLIPCHILDREN,gscreenLeft,gscreenTop,gscreenWidth,gscreenHeight,GetDesktopWindow(),NULL,hInstance,NULL);
-		}
-	}
-	else
-	{
-		if(ghShellDLL != NULL)
-		{
-			ghWnd = CreateWindowEx(WS_EX_TRANSPARENT,szWinName,_TEXT("Matrix Code"), WS_CHILDWINDOW | WS_OVERLAPPED /*|WS_CLIPSIBLINGS*/|WS_CLIPCHILDREN,0,0,gscreenWidth,gscreenHeight,ghShellDLL,NULL,hInstance,NULL);
-			EnableWindow(ghWnd,FALSE);
-			SetWindowPos(ghWnd,HWND_BOTTOM,0,0,0,0,SWP_NOSIZE|SWP_NOMOVE);
-		}
-		else
-		{
-			ghWnd = CreateWindowEx(WS_EX_TRANSPARENT,szWinName,_TEXT("Matrix Code"), WS_CHILDWINDOW /*| WS_OVERLAPPED |WS_CLIPSIBLINGS*/|WS_CLIPCHILDREN,gscreenLeft,gscreenTop,gscreenWidth,gscreenHeight,GetDesktopWindow(),NULL,hInstance,NULL);
-		}
-	}
-
-	if(!ghWnd)
-	{
-		MessageBox(NULL, _T("ZMatrix could not create its desktop background window."), _T("ZMatrix"), MB_OK | MB_ICONERROR);
-		ReleaseDesktopHost(BackgroundHost);
-		DeleteObject(ValidRGN);
-		DestroyMenu(gSysTrayMenu);
-		UnregisterClass(szWinName,hInstance);
-		CoUninitialize();
-		return 1;
-	}
 
 	if(!SHGetSpecialFolderPath(ghWnd,AllUsersStartupDirectoryPath,CSIDL_COMMON_STARTUP,FALSE))
 	{
@@ -272,9 +220,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 
 
 
-	ShowWindow(ghWnd,nWinMode);
-	UpdateWindow(ghWnd);
-
 	HRESULT Result = NO_ERROR;
 	MULTI_QI Qi;
 	Qi.pIID = &IID_IZSMATRIX;
@@ -305,6 +250,16 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 
 	ProcessMiscConfiguration();
 	InitializeAudio(AppConfigDirectoryPath.c_str());
+	if (EnforceDesktop())
+	{
+		ShowWindow(ghWnd,SW_SHOWNOACTIVATE);
+		UpdateWindow(ghWnd);
+	}
+	else
+	{
+		KillTimer(ghWnd,REFRESH_TIMER_ID);
+		SetTimer(ghWnd,DESKTOP_RETRY_TIMER_ID,1000,NULL);
+	}
 
 
 
@@ -405,15 +360,30 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 		{
 			switch(wParam)
 			{
+			case(DESKTOP_RETRY_TIMER_ID):
+				{
+					if (!MatrixObject || !EnforceDesktop()) break;
+					KillTimer(hWnd,DESKTOP_RETRY_TIMER_ID);
+					ShowWindow(hWnd,SW_SHOWNOACTIVATE);
+					if (!Paused) SetTimer(hWnd,REFRESH_TIMER_ID,RefreshTime,NULL);
+				}
+				break;
 			case(REFRESH_TIMER_ID):
 				{
+					if (!MatrixObject) break;
 					if(ScheduledRegionUpdate)
 					{
 						UpdateRegions();
 						ScheduledRegionUpdate = false;
 					}
 
-					EnforceDesktop();
+					if (!EnforceDesktop())
+					{
+						ShowWindow(hWnd,SW_HIDE);
+						KillTimer(hWnd,REFRESH_TIMER_ID);
+						SetTimer(hWnd,DESKTOP_RETRY_TIMER_ID,1000,NULL);
+						break;
+					}
 					UpdateAudioReaction(MatrixObject);
 
 					if(InScreenSaveMode)

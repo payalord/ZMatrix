@@ -11,7 +11,7 @@ static const DWORD Priorities[] = {IDLE_PRIORITY_CLASS, BELOW_NORMAL_PRIORITY_CL
 struct NumberControl { int id; unsigned minimum, maximum; };
 static const NumberControl Numbers[] = {
     {IDC_MAX_STREAM,0,2000}, {IDC_SPEED,0,50}, {IDC_REFRESH,1,500}, {IDC_PROBABILITY,0,100},
-    {IDC_BACKTRACE,0,100}, {IDC_LEADING,0,100}, {IDC_SPACE,0,100}
+    {IDC_BACKTRACE,0,100}, {IDC_LEADING,0,100}, {IDC_SPACE,0,100}, {IDC_BLEND_STRENGTH,0,100}
 };
 struct Editor {
     IzsMatrix &matrix;
@@ -31,6 +31,7 @@ struct Editor {
         case IDC_PROBABILITY: return static_cast<unsigned>(std::round(settings.probability * 100));
         case IDC_BACKTRACE: return settings.backTrace;
         case IDC_LEADING: return settings.leading;
+        case IDC_BLEND_STRENGTH: return settings.blendStrength;
         default: return settings.spacePad;
         }
     }
@@ -43,6 +44,7 @@ struct Editor {
         case IDC_BACKTRACE: settings.backTrace = value; break;
         case IDC_LEADING: settings.leading = value; break;
         case IDC_SPACE: settings.spacePad = value; break;
+        case IDC_BLEND_STRENGTH: settings.blendStrength = value; break;
         }
     }
     Color *ColorFor(int id) {
@@ -66,6 +68,11 @@ struct Editor {
         for(int id : {IDC_BACKTRACE, IDC_BACKTRACE+SLIDER_OFFSET}) EnableWindow(GetDlgItem(window, id), settings.monotonous);
         for(int id : {IDC_LEADING, IDC_LEADING+SLIDER_OFFSET, IDC_SPACE, IDC_SPACE+SLIDER_OFFSET}) EnableWindow(GetDlgItem(window, id), settings.randomized);
         EnableWindow(GetDlgItem(window, IDC_BLEND), settings.backgroundMode == bgmodeBitmap);
+        IzsMatrixAppearance *appearance = nullptr;
+        const bool supported = SUCCEEDED(matrix.QueryInterface(IID_IZSMATRIXAPPEARANCE, reinterpret_cast<void **>(&appearance))) && settings.backgroundMode == bgmodeBitmap;
+        if(appearance) appearance->Release();
+        EnableWindow(GetDlgItem(window, IDC_BLEND_STRENGTH), supported);
+        EnableWindow(GetDlgItem(window, IDC_BLEND_STRENGTH+SLIDER_OFFSET), supported);
     }
     void Populate(HWND window) {
         updating = true;
@@ -79,7 +86,7 @@ struct Editor {
         CheckDlgButton(window, IDC_RANDOMIZED, settings.randomized ? BST_CHECKED : BST_UNCHECKED);
         SendDlgItemMessageW(window, IDC_BG_MODE, CB_SETCURSEL, settings.backgroundMode == bgmodeColor ? 1 : 0, 0);
         SendDlgItemMessageW(window, IDC_BLEND, CB_SETCURSEL, settings.blendMode, 0);
-        SendDlgItemMessageW(window, IDC_OPACITY, CB_SETCURSEL, settings.background.a ? 1 : 0, 0);
+        SendDlgItemMessageW(window, IDC_TEXT_BACKGROUND, CB_SETCURSEL, settings.background.a >= 128 ? 1 : 0, 0);
         for(unsigned i = 0; i < _countof(Priorities); ++i)
             if(Priorities[i] == settings.priority) SendDlgItemMessageW(window, IDC_PRIORITY, CB_SETCURSEL, i, 0);
         EnableControls(window);
@@ -98,7 +105,11 @@ struct Editor {
             }
             return false;
         }
-        if(value != Number(n.id)) { Number(n.id, value); Preview(); }
+        if(value != Number(n.id)) {
+            Number(n.id, value);
+            if(n.id == IDC_BLEND_STRENGTH) ApplyBlendStrength(matrix, value);
+            else Preview();
+        }
         SendDlgItemMessageW(window, n.id+SLIDER_OFFSET, TBM_SETPOS, TRUE, value);
         return true;
     }
@@ -159,7 +170,7 @@ static INT_PTR CALLBACK ConfigProcedure(HWND window, UINT message, WPARAM wparam
             }
             AddOptions(window, IDC_BG_MODE, {L"Desktop bitmap", L"Solid color"});
             AddOptions(window, IDC_BLEND, {L"XOR", L"AND", L"OR"});
-            AddOptions(window, IDC_OPACITY, {L"Transparent", L"Opaque"});
+            AddOptions(window, IDC_TEXT_BACKGROUND, {L"Transparent", L"Opaque"});
             AddOptions(window, IDC_PRIORITY, {L"Idle (recommended)", L"Below normal", L"Normal", L"Above normal", L"High"});
             context->Populate(window); return TRUE;
         }
@@ -217,7 +228,7 @@ static INT_PTR CALLBACK ConfigProcedure(HWND window, UINT message, WPARAM wparam
             switch(id) {
             case IDC_BG_MODE: s.backgroundMode = static_cast<TBGMode>(selection); break;
             case IDC_BLEND: s.blendMode = static_cast<TBlendMode>(selection); break;
-            case IDC_OPACITY: s.background.a = selection ? 255 : 0; break;
+            case IDC_TEXT_BACKGROUND: s.background.a = selection ? 255 : 0; break;
             case IDC_PRIORITY: s.priority = Priorities[selection]; break;
             default: return FALSE;
             }

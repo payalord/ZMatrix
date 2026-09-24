@@ -10,6 +10,7 @@
 #include <vector>
 #include <stdexcept>
 #include "../zsMatrix/IzsMatrix.h"
+#include "../zsMatrix/IzsMatrixAppearance.h"
 #include "../zConfig/resource.h"
 #include "../Audio/AudioSettings.h"
 
@@ -87,12 +88,26 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
             SetDlgItemInt(window,IDC_PROBABILITY,27,FALSE);
             Check(matrix->GetMaxStream()==173 && refresh==61,"Live numerical preview failed.");
             Check(matrix->GetSpecialStringStreamProbability()==0.27f,"Probability preview failed.");
+            Check(GetDlgItemInt(window,IDC_BLEND_STRENGTH,nullptr,FALSE)==100,"Initial blend strength not shown.");
+            SetDlgItemInt(window,IDC_BLEND_STRENGTH,25,FALSE);
+            Check(ReadBlendStrength(*matrix)==25,"Blend strength live preview failed.");
+            SetDlgItemInt(window,IDC_BLEND_STRENGTH,101,FALSE);
+            Check(ReadBlendStrength(*matrix)==25,"Out-of-range blend strength was applied.");
+            const HWND slider=GetDlgItem(window,IDC_BLEND_STRENGTH+SLIDER_OFFSET);
+            SendMessageW(slider,TBM_SETPOS,TRUE,35);
+            SendMessageW(window,WM_HSCROLL,MAKEWPARAM(TB_THUMBPOSITION,35),reinterpret_cast<LPARAM>(slider));
+            Check(ReadBlendStrength(*matrix)==35 && GetDlgItemInt(window,IDC_BLEND_STRENGTH,nullptr,FALSE)==35,"Blend slider and numeric edit differ.");
+            Capture(window,L"config-blend");
             // Invalid edits must not modify the engine or underflow unsigned values.
             SetDlgItemTextW(window,IDC_REFRESH,L"0");
             Check(refresh==61,"Invalid refresh time was applied.");
             SetDlgItemInt(window,IDC_REFRESH,61,FALSE);
             Select(window,IDC_BG_MODE,1);
             Check(matrix->GetBGMode()==bgmodeColor && !IsWindowEnabled(GetDlgItem(window,IDC_BLEND)),"Background mode dependencies failed.");
+            Check(!IsWindowEnabled(slider) && !IsWindowEnabled(GetDlgItem(window,IDC_BLEND_STRENGTH)),"Bitmap blend strength remained enabled in solid-color mode.");
+            Select(window,IDC_BG_MODE,0);
+            Check(IsWindowEnabled(slider) && IsWindowEnabled(GetDlgItem(window,IDC_BLEND_STRENGTH)) && ReadBlendStrength(*matrix)==35,"Returning to bitmap mode lost blend strength.");
+            Select(window,IDC_BG_MODE,1);
             const bool wasEnabled=matrix->GetMonotonousCleanupEnabled();
             Click(window,IDC_MONOTONOUS);
             Check(matrix->GetMonotonousCleanupEnabled()!=wasEnabled,"Cleanup toggle failed.");
@@ -213,10 +228,12 @@ int wmain(int argc,wchar_t **argv) {
             accepted=accept; sawConfig=false; sawCharacters=false;
             matrix->SetMaxStream(137); matrix->SetValidCharSet(L"01",2);
             matrix->SetBGMode(bgmodeBitmap); matrix->SetSpecialStringStreamProbability(0.1f);
+            Check(ApplyBlendStrength(*matrix,100),"Missing appearance interface.");
             refresh=41; priority=initialPriority; SetPriorityClass(GetCurrentProcess(),initialPriority);
             Check((configure(matrix,refresh,priority)!=0)==accept,"Dialog return value changed.");
             Check(sawConfig && sawCharacters && !failed,"Configuration or character dialog failed.");
             Check(matrix->GetMaxStream()==(accept?173u:137u) && refresh==(accept?61u:41u),"Accept/Cancel did not preserve expected state.");
+            Check(ReadBlendStrength(*matrix)==(accept?35u:100u),"Accept/Cancel did not preserve blend strength.");
             if(!accept) Check(priority==initialPriority && GetPriorityClass(GetCurrentProcess())==initialPriority,"Cancel did not restore process priority.");
         }
         testingAudio = true;

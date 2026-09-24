@@ -26,6 +26,7 @@ Settings Capture(IzsMatrix &m, unsigned refresh, DWORD priority) {
     m.GetSpecialStringFadeColor(s.specialFade.r, s.specialFade.g, s.specialFade.b, s.specialFade.a);
     m.GetSpecialStringBGColor(s.specialBackground.r, s.specialBackground.g, s.specialBackground.b, s.specialBackground.a);
     s.backgroundMode = m.GetBGMode(); s.blendMode = m.GetBlendMode();
+    s.blendStrength = ReadBlendStrength(m);
     if(m.GetNumCharsInSet()) s.characters.assign(m.GetValidCharSet(), m.GetValidCharSet() + m.GetNumCharsInSet());
     for(unsigned i = 0; i < m.GetNumSpecialStringsInSet(); ++i) s.strings.emplace_back(m.GetValidSpecialString(i));
     return s;
@@ -45,6 +46,7 @@ void Apply(const Settings &s, IzsMatrix &m, unsigned &refresh, DWORD &priority) 
     m.SetSpecialStringFadeColor(s.specialFade.r, s.specialFade.g, s.specialFade.b, s.specialFade.a);
     m.SetSpecialStringBGColor(s.specialBackground.r, s.specialBackground.g, s.specialBackground.b, s.specialBackground.a);
     m.SetBGMode(s.backgroundMode); m.SetBlendMode(s.blendMode);
+    ApplyBlendStrength(m, s.blendStrength);
     if(s.characters.size() != m.GetNumCharsInSet() || (!s.characters.empty() && !std::equal(s.characters.begin(), s.characters.end(), m.GetValidCharSet()))) {
         if(s.characters.empty()) m.ClearValidCharSet();
         else m.SetValidCharSet(s.characters.data(), static_cast<unsigned>(s.characters.size()));
@@ -209,6 +211,8 @@ Settings Load(const std::wstring &file, const Settings &defaults) {
     s.specialBackground = ReadColor(p, L"SpecialStringBGColor", L"{0,0,0,0}");
     s.backgroundMode = Value(p.Read(L"Colors", L"BGMode", L"bgmodeBitmap"), Backgrounds);
     s.blendMode = Value(p.Read(L"Colors", L"BlendMode", L"blendmodeXOR"), Blends);
+    // Configurations predating this control retain the original full-strength effect.
+    s.blendStrength = static_cast<unsigned>(std::max(0L, std::min(100L, p.Number(L"Colors", L"BlendStrength", 100))));
     return s;
 }
 class TemporaryProfile {
@@ -258,6 +262,7 @@ void Save(const std::wstring &file, const Settings &s) {
     WriteColor(p, L"SpecialStringFGColor", s.specialForeground); WriteColor(p, L"SpecialStringFadeColor", s.specialFade); WriteColor(p, L"SpecialStringBGColor", s.specialBackground);
     p.Write(L"Colors", L"BGMode", Name(s.backgroundMode, Backgrounds));
     p.Write(L"Colors", L"BlendMode", Name(s.blendMode, Blends));
+    p.PutNumber(L"Colors", L"BlendStrength", s.blendStrength);
     WritePrivateProfileStringW(nullptr, nullptr, nullptr, temporary.path.c_str());
     Require(MoveFileExW(temporary.path.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != FALSE, L"Cannot replace the configuration file.");
     WritePrivateProfileStringW(nullptr, nullptr, nullptr, path.c_str());

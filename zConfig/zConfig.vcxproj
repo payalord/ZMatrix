@@ -189,6 +189,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Audio\AudioSettings.h" />
+    <ClInclude Include="..\zsMatrix\IzsMatrixAppearance.h" />
     <ClInclude Include="..\Audio\AudioAnalysis.h" />
     <ClInclude Include="..\Audio\AudioCapture.h" />
   </ItemGroup>

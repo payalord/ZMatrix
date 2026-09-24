@@ -38,6 +38,7 @@
 #include <vector>
 #include <tchar.h>
 #include "IzsMatrix.h"
+#include "IzsMatrixAppearance.h"
 #include <string>
 
 using namespace std;
@@ -170,7 +171,7 @@ protected:
 EXPIMP_TEMPLATE template class std::vector<_TCHAR>;
 EXPIMP_TEMPLATE template class std::vector<IzsMatrixStream *>;
 
-class zsMatrix : public IzsMatrix
+class zsMatrix : public IzsMatrix, public IzsMatrixAppearance
 {
 public:
 
@@ -190,6 +191,8 @@ public:
 	}
 
 	int __stdcall Render(HDC hdc);
+	void __stdcall SetBlendStrength(unsigned percent) { BlendStrength = percent > 100 ? 100 : percent; }
+	unsigned __stdcall GetBlendStrength() const { return BlendStrength; }
 
 
 	void __stdcall UpdateTarget(HWND hWnd,HBITMAP BGBITMAP);
@@ -352,9 +355,15 @@ public:
 
 	HRESULT __stdcall QueryInterface(REFIID riid, void** ppObject)
 	{
+		if (!ppObject) return E_POINTER;
+		*ppObject = NULL;
 		if (riid==IID_IUnknown || riid==IID_IZSMATRIX)
 		{
 			*ppObject=(IzsMatrix*) this;
+		}
+		else if (riid==IID_IZSMATRIXAPPEARANCE)
+		{
+			*ppObject=static_cast<IzsMatrixAppearance*>(this);
 		}
 		else
 		{
@@ -432,6 +441,8 @@ private:
 	HDC hBackDC;
 	HBITMAP hBackBitmap;
 
+	unsigned BlendStrength = 100;
+
 	HWND hWnd;
 
 	TBGMode BGMode;
@@ -495,6 +506,8 @@ private:
 		bool IsSpecialStringChar;
 	};
 	void CalcCurrentAndPreceedingCharDetails(const IzsMatrixStream *Stream,zsCharDetails &Current,zsCharDetails &Preceeding) const;
+	void PresentBitmapCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds);
+	void DrawBitmapCleanup(HDC target, const RECT &area, const RECT &bitmapBounds);
 
 	void CalcRectForNthBackChar(const IzsMatrixStream *Stream,unsigned int N,RECT &Rect) const;
 

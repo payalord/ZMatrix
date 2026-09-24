@@ -50,6 +50,8 @@ static void CheckRenderWindow(const DesktopHost& host, Windows& windows, const R
     Check(GetParent(render) == host.parent, "Incorrect background parent.");
     Check(!IsChild(host.iconView, render), "Animation was inserted into the icon layer.");
     Check(!IsWindowEnabled(render), "Background window must not receive desktop input.");
+    Check(!(GetWindowLongPtr(render, GWL_STYLE) & WS_VISIBLE), "Background was shown before startup completed.");
+    Check(IsDesktopRenderWindowReady(host, render), "Created background did not pass validation.");
     RECT actual = {};
     GetWindowRect(render, &actual);
     Check(EqualRect(&actual, &bounds) != FALSE, "Negative virtual-screen coordinates were lost.");
@@ -92,6 +94,23 @@ static void ModernLayout()
     Check(GetWindowLongPtr(icons, GWL_STYLE) == iconStyle &&
         SendMessage(list, LVM_GETEXTENDEDLISTVIEWSTYLE, 0, 0) == listStyle,
         "Background placement modified icon styles.");
+    SetWindowPos(render, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    Check(!IsDesktopRenderWindowReady(host, render), "Rendering above icons was allowed.");
+    Check(PositionDesktopRenderWindow(host, render, bounds) && IsDesktopRenderWindowReady(host, render),
+        "Correct icon order was not restored.");
+    SetLayeredWindowAttributes(render, 0, 128, LWA_ALPHA);
+    Check(!IsDesktopRenderWindowReady(host, render), "Unexpected desktop transparency was accepted.");
+    SetLayeredWindowAttributes(render, 0, 255, LWA_ALPHA);
+    SetWindowLongPtr(icons, GWL_EXSTYLE, 0);
+    Check(!IsDesktopRenderWindowReady(host, render), "An unavailable icon layer was accepted.");
+    Check(!PositionDesktopRenderWindow(host, render, bounds), "An invalid desktop was repositioned.");
+    SetWindowLongPtr(icons, GWL_EXSTYLE, WS_EX_LAYERED);
+    SetLayeredWindowAttributes(icons, 0, 255, LWA_ALPHA);
+    Check(IsDesktopRenderWindowReady(host, render), "Restored icon layer was not accepted.");
+    DestroyWindow(list);
+    Check(!IsDesktopRenderWindowReady(host, render), "Lost icon list was accepted.");
+    Check(!CreateDesktopRenderWindow(host, GetModuleHandle(NULL), _T("ZMatrixHostTest"), bounds),
+        "A stale desktop host created a rendering window.");
     std::puts("PASS: modern layered desktop, negative origin, wallpaper replacement and resize.");
 }
 
@@ -116,12 +135,67 @@ static void ClassicLayout()
         "An unrelated WorkerW was selected as the background.");
     const RECT bounds = {-320, -160, 640, 480};
     CheckRenderWindow(host, windows, bounds);
+    HWND render = windows.handles.back();
+    SetWindowPos(background, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    Check(!IsDesktopRenderWindowReady(host, render), "Classic background above icons was accepted.");
+    SetWindowPos(background, unrelated, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    Check(IsDesktopRenderWindowReady(host, render), "Restored classic background was rejected.");
     ShowWindow(background, SW_HIDE);
+    Check(!IsDesktopRenderWindowReady(host, render), "Unavailable classic background was accepted.");
     Check(!FindDesktopHost(root, host), "Hidden background was accepted.");
     DestroyWindow(iconHost);
     Check(!FindDesktopHost(root, host), "Desktop without an icon layer was accepted.");
     Check(!FindDesktopHost(NULL, host), "Null root was accepted.");
     std::puts("PASS: classic WorkerW layout, unrelated workers and missing-layer rejection.");
+}
+
+struct DelayedIcons
+{
+    HWND view = NULL;
+    HWND list = NULL;
+};
+
+static void CALLBACK CreateDelayedIcons(HWND root, UINT, UINT_PTR timer, DWORD)
+{
+    KillTimer(root, timer);
+    DelayedIcons& icons = *reinterpret_cast<DelayedIcons*>(GetWindowLongPtr(root, GWLP_USERDATA));
+    icons.view = CreateWindowEx(WS_EX_LAYERED, _T("SHELLDLL_DefView"), _T(""), WS_CHILD,
+        0, 0, 960, 640, root, NULL, GetModuleHandle(NULL), NULL);
+    if (!icons.view) return;
+    SetLayeredWindowAttributes(icons.view, 0, 255, LWA_ALPHA);
+    icons.list = CreateWindowEx(0, WC_LISTVIEW, _T(""), WS_CHILD,
+        0, 0, 960, 640, icons.view, NULL, GetModuleHandle(NULL), NULL);
+}
+
+static void DelayedStartup()
+{
+    Windows windows;
+    HWND root = windows.Add(_T("ZMatrixTestProgman"), NULL, WS_EX_NOREDIRECTIONBITMAP);
+    const RECT bounds = {-320, -160, 640, 480};
+    DesktopHost host = {};
+    Check(!CreateDesktopRenderWindow(host, GetModuleHandle(NULL), _T("ZMatrixHostTest"), bounds),
+        "Missing desktop fell back to a top-level rendering window.");
+    const ULONGLONG start = GetTickCount64();
+    HWND render = WaitForDesktopRenderWindow(host, GetModuleHandle(NULL), _T("ZMatrixHostTest"), bounds, 150, root);
+    Check(!render && GetLastError() == ERROR_TIMEOUT, "Missing desktop did not time out safely.");
+    Check(GetTickCount64() - start >= 150 && !host.parent && !GetWindow(root, GW_CHILD),
+        "Timed-out startup left a desktop host or rendering window.");
+    PostQuitMessage(7);
+    render = WaitForDesktopRenderWindow(host, GetModuleHandle(NULL), _T("ZMatrixHostTest"), bounds, 1000, root);
+    Check(!render && GetLastError() == ERROR_CANCELLED, "Shutdown did not cancel startup.");
+    MSG message = {};
+    Check(PeekMessage(&message, NULL, WM_QUIT, WM_QUIT, PM_REMOVE) && message.wParam == 7,
+        "Startup consumed the application quit request.");
+    DelayedIcons icons;
+    SetWindowLongPtr(root, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&icons));
+    Check(SetTimer(root, 1, 100, CreateDelayedIcons) != 0, "Delayed desktop timer creation failed.");
+    render = WaitForDesktopRenderWindow(host, GetModuleHandle(NULL), _T("ZMatrixHostTest"), bounds, 3000, root);
+    Check(icons.view && icons.list && render, "Startup did not retry after the desktop became ready.");
+    windows.handles.push_back(render);
+    Check(IsDesktopRenderWindowReady(host, render) && !(GetWindowLongPtr(render, GWL_STYLE) & WS_VISIBLE),
+        "Delayed startup returned an unsafe or visible rendering window.");
+    ReleaseDesktopHost(host);
+    std::puts("PASS: safe startup timeout, cancellation and delayed desktop readiness.");
 }
 
 static void ExplorerSmoke()
@@ -158,7 +232,7 @@ int _tmain(int argc, TCHAR** argv)
             INITCOMMONCONTROLSEX controls = {sizeof(controls), ICC_LISTVIEW_CLASSES};
             InitCommonControlsEx(&controls);
             Register(_T("ZMatrixTestProgman")); Register(_T("SHELLDLL_DefView")); Register(_T("WorkerW"));
-            ModernLayout(); ClassicLayout();
+            ModernLayout(); ClassicLayout(); DelayedStartup();
         }
         return 0;
     }

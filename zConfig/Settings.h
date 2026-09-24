@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "../zsMatrix/IzsMatrix.h"
+#include "../zsMatrix/IzsMatrixAppearance.h"
 
 namespace zconfig {
 struct Error {
@@ -24,6 +25,7 @@ struct Settings {
     Color foreground, fade, background, specialForeground, specialFade, specialBackground;
     TBGMode backgroundMode;
     TBlendMode blendMode;
+    unsigned blendStrength;
     std::vector<wchar_t> characters;
     std::vector<std::wstring> strings;
 };

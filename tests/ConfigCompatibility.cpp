@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cmath>
 #include "../zsMatrix/IzsMatrix.h"
+#include "../zsMatrix/IzsMatrixAppearance.h"
 
 static_assert(sizeof(void *) == 4, "Build this test with the x86 compiler.");
 static_assert(sizeof(_TCHAR) == 2 && sizeof(LOGFONT) == 92, "Unicode ABI required.");
@@ -61,6 +62,7 @@ static void SetValues(IzsMatrix *matrix)
     matrix->SetMonotonousCleanupEnabled(true); matrix->SetRandomizedCleanupEnabled(false);
     matrix->SetSpecialStringStreamProbability(0.1234567f);
     matrix->SetBGMode(bgmodeColor); matrix->SetBlendMode(blendmodeAND);
+    Check(ApplyBlendStrength(*matrix, 37), "Missing appearance interface.");
     matrix->SetColor(12,34,56,78); matrix->SetFadeColor(90,123,145,167);
     matrix->SetBGColor(23,45,67,89); matrix->SetSpecialStringColor(98,76,54,32);
     matrix->SetSpecialStringFadeColor(21,43,65,87); matrix->SetSpecialStringBGColor(210,190,170,150);
@@ -87,6 +89,7 @@ static void CheckValues(IzsMatrix *matrix)
     Check(matrix->GetMonotonousCleanupEnabled() && !matrix->GetRandomizedCleanupEnabled(),"Cleanup flags changed.");
     Check(matrix->GetSpecialStringStreamProbability()==0.1234567f,"Probability precision changed.");
     Check(matrix->GetBGMode()==bgmodeColor && matrix->GetBlendMode()==blendmodeAND,"Background/blend modes changed.");
+    Check(ReadBlendStrength(*matrix)==37,"Blend strength changed.");
     BYTE r,g,b,a;
     matrix->GetColor(r,g,b,a); Check(r==12 && g==34 && b==56 && a==78,"Foreground RGBA changed.");
     matrix->GetFadeColor(r,g,b,a); Check(r==90 && g==123 && b==145 && a==167,"Fade RGBA changed.");
@@ -148,6 +151,7 @@ int wmain(int argc, wchar_t **argv)
             Check(load(matrix.ptr, refresh, priority, L".\\default.cfg") != 0, "Cannot load legacy default.cfg.");
             Check(matrix.ptr->GetMaxStream() == 1000 && refresh == 50 && priority == IDLE_PRIORITY_CLASS,
                   "Legacy default.cfg values were not loaded.");
+            Check(ReadBlendStrength(*matrix.ptr)==100,"Default blend strength is not 100%.");
             const wchar_t *names[] = {L"settings.cfg", L"with spaces.cfg", L"\x041d\x0430\x0441\x0442\x0440\x043e\x0439\x043a\x0438.cfg", L"\x65e5\x672c\x8a9e.cfg"};
             for(const wchar_t *name : names)
             {
@@ -170,6 +174,7 @@ int wmain(int argc, wchar_t **argv)
                 matrix.ptr->SetMonotonousCleanupEnabled(false); matrix.ptr->SetRandomizedCleanupEnabled(true);
                 matrix.ptr->SetSpecialStringStreamProbability(0.5f);
                 matrix.ptr->SetBGMode(bgmodeBitmap); matrix.ptr->SetBlendMode(blendmodeOR);
+                ApplyBlendStrength(*matrix.ptr, 99);
                 matrix.ptr->SetColor(0,0,0,0); matrix.ptr->SetFadeColor(0,0,0,0); matrix.ptr->SetBGColor(0,0,0,0);
                 matrix.ptr->SetSpecialStringColor(0,0,0,0); matrix.ptr->SetSpecialStringFadeColor(0,0,0,0); matrix.ptr->SetSpecialStringBGColor(0,0,0,0);
                 refresh = 0;
@@ -188,6 +193,19 @@ int wmain(int argc, wchar_t **argv)
                 SetFileAttributesW(temp.path.c_str(),FILE_ATTRIBUTE_NORMAL);
                 Check(saved==0,"Read-only save reported success.");
                 Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0 && refresh==41,"Failed save modified the old CFG.");
+            }
+            SetValues(matrix.ptr); refresh=41; priority=NORMAL_PRIORITY_CLASS;
+            {
+                TemporaryFile temp; temp.path=temp.directory+L"\\appearance.cfg";
+                Check(save(matrix.ptr,41,priority,temp.path.c_str())!=0,"Cannot save appearance fixture.");
+                Check(WritePrivateProfileStringW(L"Colors",L"BlendStrength",nullptr,temp.path.c_str())!=FALSE,"Cannot remove new key for legacy fixture.");
+                Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0 && ReadBlendStrength(*matrix.ptr)==100,"Old CFG must restore full strength.");
+                const wchar_t *values[] = {L"-7",L"250",L"invalid"};
+                const unsigned expected[] = {0,100,100};
+                for(unsigned i=0;i<3;++i) {
+                    WritePrivateProfileStringW(L"Colors",L"BlendStrength",values[i],temp.path.c_str());
+                    Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0 && ReadBlendStrength(*matrix.ptr)==expected[i],"Invalid blend strength was not bounded safely.");
+                }
             }
             SetValues(matrix.ptr); refresh=41; priority=NORMAL_PRIORITY_CLASS;
             Check(load(matrix.ptr,refresh,priority,L".\\tests\\missing-config-fixture.cfg")==0,"Missing CFG reported success.");

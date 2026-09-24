@@ -228,6 +228,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IzsMatrix.h" />
+    <ClInclude Include="IzsMatrixAppearance.h" />
     <ClInclude Include="zsMatrix.h" />
   </ItemGroup>
   <ItemGroup>

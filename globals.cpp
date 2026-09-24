@@ -59,7 +59,6 @@ HWND ghProgman = NULL;
 DesktopHost BackgroundHost = {};
 HWND ghShellDLL = NULL;
 HWND ghSysListView = NULL;
-bool LiteStepMode = false;
 
 NOTIFYICONDATA IconData;
 HRGN ValidRGN = NULL;
@@ -589,21 +588,20 @@ void ClearDesktop(void)
 }
 //===========================================================================
 //===========================================================================
-void EnforceDesktop(void)
+bool EnforceDesktop(void)
 {
 	// Explorer composites our opaque background below its icon layer. Clearing
 	// the system wallpaper here would unnecessarily rebuild that desktop layer.
-	if(BackgroundHost.parent && !InScreenSaveMode)
+	if(!InScreenSaveMode)
 	{
-		if(DesktopIsCleared) RestoreOrigDesktop();
-		// Explorer can insert a replacement wallpaper window above us. Only
-		// adjust our own child when its position below the icons has changed.
-		if(BackgroundHost.layered && IsWindow(BackgroundHost.iconView) &&
-			GetWindow(ghWnd,GW_HWNDPREV) != BackgroundHost.iconView)
+		if (!IsDesktopRenderWindowReady(BackgroundHost, ghWnd))
 		{
-			SetWindowPos(ghWnd,BackgroundHost.iconView,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+			const RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
+			if (!PositionDesktopRenderWindow(BackgroundHost, ghWnd, bounds) ||
+				!IsDesktopRenderWindowReady(BackgroundHost, ghWnd)) return false;
 		}
-		return;
+		if(DesktopIsCleared) RestoreOrigDesktop();
+		return true;
 	}
 	BYTE CurrentBGAlpha = GetBGAlpha();
 
@@ -615,6 +613,7 @@ void EnforceDesktop(void)
 	{
 		RestoreOrigDesktop();
 	}
+	return true;
 }
 //===========================================================================
 //===========================================================================

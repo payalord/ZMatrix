@@ -46,6 +46,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Audio\AudioSettings.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\zsMatrix\IzsMatrixAppearance.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\Audio\AudioAnalysis.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\Audio\AudioCapture.h"><Filter>Header Files</Filter></ClInclude>
     <ClCompile Include="..\Audio\AudioSettings.cpp"><Filter>Source Files</Filter></ClCompile>
