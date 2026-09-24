@@ -1,5 +1,5 @@
-// Native implementation of the legacy ConfigFileFormatVersion=1.0 format.
-// See LICENSE.TXT. The original VCL implementation remains in Config/ for reference.
+// Configuration persistence for the ConfigFileFormatVersion=1.0 format.
+// See LICENSE.TXT.
 #include "Settings.h"
 #include <algorithm>
 #include <cmath>

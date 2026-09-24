@@ -1,4 +1,4 @@
-// Author information using Windows Rich Edit, without a VCL/ActiveX browser.
+// Author information dialogs rendered with Windows Rich Edit.
 // The original HTML, images and sound are retained as resources. See LICENSE.TXT.
 #include "UI.h"
 #include <commctrl.h>

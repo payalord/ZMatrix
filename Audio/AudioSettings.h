@@ -2,7 +2,8 @@
 #include <windows.h>
 
 namespace audio {
-enum Mode { LegacyVU = 0, Frequency = 1, ModeCount = 2 };
+// Values are persisted in Audio.cfg; keep them stable when renaming effects.
+enum Mode { WaveformVariation = 0, SpectralCentroid = 1, ModeCount = 2 };
 struct Mapping {
     double baseScale[3], baseOffset[3], peakScale[3], peakOffset[3];
     double globalScale, globalOffset;

@@ -14,8 +14,10 @@ struct PcmFormat {
     bool Read(const WAVEFORMATEX &format);
     float Sample(const BYTE *data) const;
 };
-struct Descriptors { double vu = 0, frequency = 0; };
-double LegacyVariation(const unsigned char *samples); // 576 samples, integer division as in WinampVis.
+// Both responses are normalized to 0..1; spectralCentroid is relative to 11.025 kHz.
+struct Descriptors { double waveformVariation = 0, spectralCentroid = 0; };
+// Preserves the original Winamp VU effect: 576 samples with integer division.
+double CalculateWaveformVariation(const unsigned char *samples);
 class Analyzer {
 public:
     explicit Analyzer(const PcmFormat &format);

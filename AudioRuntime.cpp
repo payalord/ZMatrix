@@ -34,7 +34,7 @@ void __stdcall Status(void *, audio::Status *out) {
     if(!out) return;
     const auto snapshot = capture.Read();
     *out = {snapshot.state,loadError ? HRESULT_FROM_WIN32(loadError) : snapshot.error,
-        settings.mode == audio::LegacyVU ? snapshot.signal.vu : snapshot.signal.frequency};
+        settings.mode == audio::WaveformVariation ? snapshot.signal.waveformVariation : snapshot.signal.spectralCentroid};
 }
 const audio::HostApi host = {sizeof(audio::HostApi),1,nullptr,Get,Preview,Commit,Status};
 }
@@ -57,7 +57,7 @@ void UpdateAudioReaction(IzsMatrix *matrix) {
     audio::Coefficients coefficients = {{1,1,1},{0,0,0}};
     const auto snapshot = capture.Read();
     if(settings.enabled && snapshot.state == audio::Capturing) {
-        const double signal = settings.mode == audio::LegacyVU ? snapshot.signal.vu : snapshot.signal.frequency;
+        const double signal = settings.mode == audio::WaveformVariation ? snapshot.signal.waveformVariation : snapshot.signal.spectralCentroid;
         coefficients = audio::Map(settings.profiles[settings.mode],signal);
     }
     // Only the rendering/UI thread touches the COM engine. Fractional values remain intact.

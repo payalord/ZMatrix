@@ -40,7 +40,7 @@ int wmain() {
         Check(!settings.enabled && WaitFor(*host,audio::Disabled),"New configuration started capture.");
         matrix->SetCoeffR1(9.0); UpdateAudioReaction(matrix);
         Check(matrix->GetCoeffR1() == 1 && matrix->GetCoeffB0() == 0,"Disabled audio did not restore ordinary coefficients.");
-        settings.enabled = TRUE; settings.mode = audio::Frequency;
+        settings.enabled = TRUE; settings.mode = audio::SpectralCentroid;
         settings.profiles[1].globalScale = 0; settings.profiles[1].globalOffset = 0.25;
         settings.profiles[1].peakOffset[2] = 99;
         Check(host->preview(host->context,&settings) == 0 && WaitFor(*host,audio::Capturing),"Cannot start default loopback.");

@@ -79,8 +79,8 @@ int wmain(int argc, wchar_t **argv) {
                 }
                 const auto snapshot = capture.Read();
                 observed |= snapshot.state == audio::Capturing;
-                Check(std::isfinite(snapshot.signal.vu) && std::isfinite(snapshot.signal.frequency),"Nonfinite capture descriptor.");
-                strongest = std::max(strongest,snapshot.signal.frequency);
+                Check(std::isfinite(snapshot.signal.waveformVariation) && std::isfinite(snapshot.signal.spectralCentroid),"Nonfinite capture descriptor.");
+                strongest = std::max(strongest,snapshot.signal.spectralCentroid);
                 Sleep(10);
             }
             output->Stop();
@@ -89,7 +89,7 @@ int wmain(int argc, wchar_t **argv) {
             Sleep(400);
             const auto after = capture.Read();
             Check(after.state == audio::Capturing,"Stopping playback stopped the capture client.");
-            printf("After playback: VU %.6f, frequency %.6f (other applications may still be audible).\n",after.signal.vu,after.signal.frequency);
+            printf("After playback: waveform variation %.6f, spectral centroid %.6f (other applications may still be audible).\n",after.signal.waveformVariation,after.signal.spectralCentroid);
             capture.Stop();
             Check(capture.Read().state == audio::Disabled,"Disable did not clear the capture state.");
             puts("PASS: Disabled default, missing device, interruptible retry, recovery, real WASAPI loopback packets and shutdown.");

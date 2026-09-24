@@ -45,7 +45,7 @@ float PcmFormat::Sample(const BYTE *data) const {
     }
     return std::isfinite(value) ? static_cast<float>(std::clamp(value,-1.0,1.0)) : 0.0f;
 }
-double LegacyVariation(const unsigned char *samples) {
+double CalculateWaveformVariation(const unsigned char *samples) {
     unsigned total = 0;
     for(unsigned i = 1; i < 576; ++i) total += std::abs(int(samples[i])-int(samples[i-1]));
     return std::min(total/288,255u)/255.0;
@@ -93,18 +93,18 @@ Descriptors Analyzer::Analyze() const {
     std::vector<std::complex<double>> spectrum(size);
     for(unsigned c = 0; c < format_.channels; ++c) {
         unsigned char waveform[576];
-        // A fixed 44.1 kHz reference prevents the VU response changing with endpoint rate.
+        // A fixed 44.1 kHz reference keeps waveform variation independent of endpoint rate.
         // Winamp waveform bytes contain signed 8-bit PCM in an unsigned array.
-        // Retain the old VU's unsigned differences, including its zero-crossing jumps.
+        // Preserve the original Winamp VU effect's unsigned differences and zero-crossing jumps.
         // See WACUP/vis_classic, Vis_Satan.cpp, AtAnStDirectRender.
         for(unsigned i = 0; i < 576; ++i)
             waveform[i] = static_cast<unsigned char>(static_cast<int>(std::clamp(
                 std::floor(128.0*At(c,(575-i)*format_.rate/44100.0)),-128.0,127.0)));
-        result.vu += LegacyVariation(waveform)/format_.channels;
+        result.waveformVariation += CalculateWaveformVariation(waveform)/format_.channels;
         for(unsigned i = 0; i < size; ++i)
             spectrum[i] = At(c,size-1-i)*(0.5-0.5*std::cos(6.283185307179586*i/(size-1)));
         Fft(spectrum);
-        // Legacy used the lower half of a 576-bin spectrum. Anchor that band at
+        // The original Winamp frequency effect used half of a 576-bin spectrum. Keep its band at
         // 0..11.025 kHz, independent of the playback device's native sample rate.
         // Sum magnitudes per channel so opposite-phase stereo does not cancel.
         for(unsigned i = 0; i < size/2; ++i) {
@@ -114,7 +114,7 @@ Descriptors Analyzer::Analyze() const {
             weighted += frequency/11025*value; magnitude += value;
         }
     }
-    result.frequency = magnitude > 1e-8 ? weighted/magnitude : 0;
+    result.spectralCentroid = magnitude > 1e-8 ? weighted/magnitude : 0;
     return result;
 }
 }

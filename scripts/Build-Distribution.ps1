@@ -1,7 +1,6 @@
 [CmdletBinding()]
 param(
     [switch]$SkipBuild,
-    [switch]$IncludeWinamp,
     [string]$MSBuildPath,
     [string]$InnoSetupPath
 )
@@ -34,7 +33,6 @@ Push-Location -LiteralPath $repoRoot
 try {
     # Check external inputs before replacing any distribution files.
     $requiredInputs = @('ZMatrixHelp.chm')
-    if ($IncludeWinamp) { $requiredInputs += 'WinampVis\vis_zmx.dll' }
     foreach ($required in $requiredInputs) {
         if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
             throw "Missing $required. Build it separately as described in BUILDING.md."
@@ -63,7 +61,6 @@ try {
         'ZMatrixHelp.chm' = 'ZMatrixHelp.chm'
         'ScreenSaver\ZMatrixSS.scr' = 'ScreenSaver\ZMatrixSS.scr'
     }
-    if ($IncludeWinamp) { $files['WinampVis\vis_zmx.dll'] = 'vis_zmx.dll' }
     foreach ($source in $files.Keys) {
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
             throw "Missing distribution input: $source"
@@ -86,7 +83,6 @@ try {
         Copy-Item -LiteralPath $source -Destination (Join-Path $stagePath $files[$source])
     }
     $installerArgs = @('Setup\ZMatrix_payalord.iss')
-    if ($IncludeWinamp) { $installerArgs = @('/DIncludeWinamp') + $installerArgs }
     & $innoSetup @installerArgs
     if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed ($LASTEXITCODE)." }
 }

@@ -41,9 +41,9 @@ struct AudioEditor {
             wchar_t label[80]; swprintf_s(label,L"RGB %.0f, %.0f, %.0f...",rgb[0],rgb[1],rgb[2]);
             SetDlgItemTextW(window,i ? IDC_AUDIO_PEAK_COLOR : IDC_AUDIO_BASE_COLOR,label);
         }
-        SetDlgItemTextW(window,IDC_AUDIO_DESCRIPTION,settings.mode == audio::LegacyVU ?
-            L"Legacy VU reacts to adjacent-sample variation (both level and frequency)." :
-            L"Frequency reacts to the spectral centroid: higher frequencies increase the response.");
+        SetDlgItemTextW(window,IDC_AUDIO_DESCRIPTION,settings.mode == audio::WaveformVariation ?
+            L"Waveform variation reacts to differences between adjacent samples (both level and frequency)." :
+            L"Spectral centroid reacts to the balance of frequencies: higher frequencies increase the response.");
         updating = false;
     }
     void Devices(HWND window) {
@@ -100,19 +100,19 @@ struct AudioEditor {
         SetDlgItemTextW(window,IDC_AUDIO_STATUS,text.c_str());
     }
 };
-static void ImportAudio(HWND window, AudioEditor &editor) {
+static void ImportLegacyWinampSettings(HWND window, AudioEditor &editor) {
     wchar_t file[MAX_PATH] = L"vis_zmx.cfg", folder[MAX_PATH] = {};
     std::wstring initial;
     if(SUCCEEDED(SHGetFolderPathW(nullptr,CSIDL_APPDATA,nullptr,SHGFP_TYPE_CURRENT,folder))) initial = std::wstring(folder)+L"\\.ZMatrix";
     OPENFILENAMEW choose = {sizeof(choose)};
     choose.hwndOwner = window; choose.lpstrFile = file; choose.nMaxFile = _countof(file);
-    choose.lpstrFilter = L"WinampVis settings (vis_zmx.cfg)\0*.cfg\0All files\0*.*\0";
-    choose.lpstrTitle = L"Import WinampVis settings"; choose.lpstrInitialDir = initial.c_str();
+    choose.lpstrFilter = L"Legacy Winamp settings (vis_zmx.cfg)\0*.cfg\0All files\0*.*\0";
+    choose.lpstrTitle = L"Import legacy Winamp settings"; choose.lpstrInitialDir = initial.c_str();
     choose.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
     if(!GetOpenFileNameW(&choose)) return;
     auto imported = editor.settings;
     const DWORD error = audio::Load(file,imported,true);
-    if(error) throw Error{L"This file does not contain valid WinampVis settings. RGB lists must use decimal points, and all values must stay within the supported ranges.",error};
+    if(error) throw Error{L"This file does not contain valid legacy Winamp settings. RGB lists must use decimal points, and all values must stay within the supported ranges.",error};
     const auto previous = editor.settings;
     editor.settings = imported;
     try { editor.Preview(); } catch(...) { editor.settings = previous; throw; }
@@ -124,7 +124,7 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
         if(message == WM_INITDIALOG) {
             context = reinterpret_cast<AudioEditor *>(lparam);
             SetWindowLongPtrW(window,DWLP_USER,lparam); InitDialog(window);
-            for(const auto label : {L"Legacy VU",L"Frequency"})
+            for(const auto label : {L"Waveform variation",L"Spectral centroid"})
                 SendDlgItemMessageW(window,IDC_AUDIO_MODE,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label));
             for(int i = 0; i < 8; ++i) {
                 SendDlgItemMessageW(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET,TBM_SETRANGEMIN,FALSE,i == 7 ? -500 : 0);
@@ -165,7 +165,7 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
         } else if(code == BN_CLICKED && id == IDC_AUDIO_ENABLED) {
             context->settings.enabled = IsDlgButtonChecked(window,id) == BST_CHECKED;
         } else if(code == BN_CLICKED && id == IDC_AUDIO_REFRESH) { context->Devices(window); return TRUE; }
-        else if(code == BN_CLICKED && id == IDC_AUDIO_IMPORT) { ImportAudio(window,*context); return TRUE; }
+        else if(code == BN_CLICKED && id == IDC_AUDIO_IMPORT) { ImportLegacyWinampSettings(window,*context); return TRUE; }
         else if(code == BN_CLICKED && (id == IDC_AUDIO_BASE_COLOR || id == IDC_AUDIO_PEAK_COLOR)) {
             auto &mapping = context->settings.profiles[context->settings.mode];
             double *rgb = id == IDC_AUDIO_BASE_COLOR ? mapping.baseOffset : mapping.peakOffset;

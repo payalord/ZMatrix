@@ -13,7 +13,6 @@ mkdir Distro_SRC\Config
 mkdir Distro_SRC\zsMatrix
 mkdir Distro_SRC\MsgHook
 mkdir Distro_SRC\ScreenSaver
-mkdir Distro_SRC\WinampVis
 mkdir Distro_SRC\scripts
 mkdir Distro_SRC\Help
 mkdir Distro_SRC\Help\help.zmatrix.n3.net
@@ -99,23 +98,8 @@ copy ScreenSaver\ZMatrix.ico Distro_SRC\ScreenSaver
 copy ScreenSaver\ZMatrixSS.ini Distro_SRC\ScreenSaver
 copy ScreenSaver\ZMatrixSS.dsp Distro_SRC\ScreenSaver
 
-copy WinampVis\main.cpp Distro_SRC\WinampVis
-copy WinampVis\vis.h Distro_SRC\WinampVis
-copy WinampVis\vis_zmx.bpf Distro_SRC\WinampVis
-copy WinampVis\vis_zmx.bpr Distro_SRC\WinampVis
-copy WinampVis\vis_zmx.cpp Distro_SRC\WinampVis
-copy WinampVis\vis_zmx.h Distro_SRC\WinampVis
-copy WinampVis\vis_zmx.res Distro_SRC\WinampVis
-copy WinampVis\zmxCommonConfigUnit.cpp Distro_SRC\WinampVis
-copy WinampVis\zmxCommonConfigUnit.dfm Distro_SRC\WinampVis
-copy WinampVis\zmxCommonConfigUnit.h Distro_SRC\WinampVis
-copy WinampVis\zmxFreqModulateModule.cpp Distro_SRC\WinampVis
-copy WinampVis\zmxFreqModulateModule.h Distro_SRC\WinampVis
-copy WinampVis\zmxVUModulateModule.cpp Distro_SRC\WinampVis
-copy WinampVis\zmxVUModulateModule.h Distro_SRC\WinampVis
 
 copy Setup\ZMatrix.iss Distro_SRC\Setup
-copy Setup\ZMatrixVis.psc Distro_SRC\Setup
 
 xcopy scripts\* Distro_SRC\scripts\ /S /exclude:GeneralXCopyExclusions.txt
 

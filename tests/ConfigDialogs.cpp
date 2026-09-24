@@ -112,17 +112,17 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
             Click(window,IDC_AUDIO_ENABLED);
             Check(audioCurrent.enabled != FALSE,"Audio enable preview failed.");
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"37.5");
-            Check(audioCurrent.profiles[audio::LegacyVU].baseScale[0] == 0.375,"Fractional audio percentage lost.");
+            Check(audioCurrent.profiles[audio::WaveformVariation].baseScale[0] == 0.375,"Fractional audio percentage lost.");
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"NaN");
-            Check(audioCurrent.profiles[audio::LegacyVU].baseScale[0] == 0.375,"Invalid audio edit applied.");
+            Check(audioCurrent.profiles[audio::WaveformVariation].baseScale[0] == 0.375,"Invalid audio edit applied.");
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"37.5");
-            Select(window,IDC_AUDIO_MODE,audio::Frequency);
+            Select(window,IDC_AUDIO_MODE,audio::SpectralCentroid);
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER+6,L"650");
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER+7,L"-12.5");
-            Check(audioCurrent.profiles[audio::Frequency].globalScale == 6.5 && audioCurrent.profiles[audio::Frequency].globalOffset == -0.125,"Global audio mapping preview failed.");
-            Select(window,IDC_AUDIO_MODE,audio::LegacyVU);
-            Check(audioCurrent.profiles[audio::LegacyVU].baseScale[0] == 0.375 && audioCurrent.profiles[audio::LegacyVU].globalScale == 3,"Switching effects mixed their settings.");
-            Select(window,IDC_AUDIO_MODE,audio::Frequency);
+            Check(audioCurrent.profiles[audio::SpectralCentroid].globalScale == 6.5 && audioCurrent.profiles[audio::SpectralCentroid].globalOffset == -0.125,"Global audio mapping preview failed.");
+            Select(window,IDC_AUDIO_MODE,audio::WaveformVariation);
+            Check(audioCurrent.profiles[audio::WaveformVariation].baseScale[0] == 0.375 && audioCurrent.profiles[audio::WaveformVariation].globalScale == 3,"Switching effects mixed their settings.");
+            Select(window,IDC_AUDIO_MODE,audio::SpectralCentroid);
             Capture(window,L"audio");
             Click(window,audioCase == 0 ? IDCANCEL : IDOK);
         } else if(testingAudio && audioCase == 3) {

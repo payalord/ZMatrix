@@ -1,4 +1,4 @@
-// Audio settings and the color mapping shared with the original WinampVis effects.
+// Audio settings persistence and audio-to-color mapping.
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -13,13 +13,13 @@
 namespace audio {
 Settings Defaults() {
     Settings s = {};
-    auto &vu = s.profiles[LegacyVU];
-    auto &freq = s.profiles[Frequency];
-    for(int c = 0; c < 3; ++c) vu.peakScale[c] = freq.peakScale[c] = 2;
-    vu.baseOffset[1] = 64; vu.baseOffset[2] = 128;
-    vu.peakOffset[0] = 128; vu.peakOffset[1] = vu.peakOffset[2] = 255;
-    vu.globalScale = 3; vu.globalOffset = -0.3;
-    freq.globalScale = 5;
+    auto &variation = s.profiles[WaveformVariation];
+    auto &centroid = s.profiles[SpectralCentroid];
+    for(int c = 0; c < 3; ++c) variation.peakScale[c] = centroid.peakScale[c] = 2;
+    variation.baseOffset[1] = 64; variation.baseOffset[2] = 128;
+    variation.peakOffset[0] = 128; variation.peakOffset[1] = variation.peakOffset[2] = 255;
+    variation.globalScale = 3; variation.globalOffset = -0.3;
+    centroid.globalScale = 5;
     return s;
 }
 static bool Range(double value, double low, double high) {
@@ -67,6 +67,8 @@ static bool Parse(std::wstring value, double *dest, int count, bool legacy) {
     in >> std::ws;
     return in.eof();
 }
+// Section names and keys are shared by Audio.cfg version 1 and legacy Winamp imports.
+// Keep these serialized names stable even when effect names change.
 static const wchar_t *Sections[] = {L"VU Modulate", L"Frequency Modulate"};
 static const wchar_t *Keys[] = {L"BaseColorScales", L"BaseColorOffsets", L"PeakColorScales", L"PeakColorOffsets", L"GlobalScale", L"GlobalOffset"};
 DWORD Load(const wchar_t *path, Settings &settings, bool legacy) {
@@ -80,7 +82,7 @@ DWORD Load(const wchar_t *path, Settings &settings, bool legacy) {
             const auto enabled = Value(path,L"Audio",L"Enabled");
             const auto mode = Value(path,L"Audio",L"Mode");
             if((enabled != L"0" && enabled != L"1") || (mode != L"0" && mode != L"1")) return ERROR_INVALID_DATA;
-            next.enabled = enabled == L"1"; next.mode = mode == L"1" ? Frequency : LegacyVU;
+            next.enabled = enabled == L"1"; next.mode = mode == L"1" ? SpectralCentroid : WaveformVariation;
             const auto device = Value(path,L"Audio",L"Device");
             if(device.size() >= _countof(next.deviceId)) return ERROR_INVALID_DATA;
             wcscpy_s(next.deviceId, device.c_str());

@@ -1,4 +1,4 @@
-// Native replacement for the VCL configuration form. See LICENSE.TXT.
+// ZMatrix configuration dialog with live preview and apply/cancel handling. See LICENSE.TXT.
 #include "UI.h"
 #include <commctrl.h>
 #include <commdlg.h>

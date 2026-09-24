@@ -1,4 +1,4 @@
-// Native replacement for CharSetForm. See LICENSE.TXT.
+// Character set and special-string editor. See LICENSE.TXT.
 #include "UI.h"
 #include <richedit.h>
 

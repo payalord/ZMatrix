@@ -8,9 +8,6 @@
 #define MINOR_VER "5"
 #define RELEASE_VER "4"
 
-#define VIS_INSTALLER_NAME "ZMatrixVizModule_"+MAJOR_VER+"_"+MINOR_VER+"_"+RELEASE_VER+".exe"
-#define VIS_INSTALLER_PATH "..\DistroVis\Output\"
-#define VIS_INSTALLER_PATH_AND_NAME VIS_INSTALLER_PATH + VIS_INSTALLER_NAME
 
 [Setup]
 AppName=ZMatrix
@@ -53,9 +50,6 @@ ShowTasksTreeLines=yes
 [Components]
 Name: "main"; Description: "Main Program Files"; Types: full compact custom; Flags: fixed
 Name: "screensaver"; Description: "Screensaver Component"; Types: full
-#ifdef IncludeWinamp
-Name: "winampvis"; Description: "Winamp 2.x Visualization Component"; Types: full
-#endif
 
 [Files]
 Source: "matrix.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: main
@@ -75,9 +69,6 @@ Source: "LICENSE.TXT"; DestDir: "{app}"; Components: main
 
 Source: "ScreenSaver\ZMatrixSS.scr"; DestDir: "{win}"; Flags: ignoreversion; Components: screensaver
 
-#ifdef IncludeWinamp
-Source: "vis_zmx.dll"; DestDir: "{app}"; Flags: ignoreversion; Components: winampvis
-#endif
 
 [INI]
 Filename: "{win}\ZMatrixSS.ini"; Section: "ZMatrixSS"; Key: "MatrixCommandLine"; String: "{app}\matrix.exe"
@@ -121,7 +112,6 @@ Filename: "{app}\matrix.exe"; Description: "Launch ZMatrix"; Flags: nowait posti
 Type: files; Name: "{win}\ZMatrixSS.ini"
 Type: files; Name: "{app}\ZMatrix.ini"
 Type: dirifempty; Name: "{app}"
-;Type: files; Name: "{code:GetWinampDir|'C:\Program Files\Winamp'}\Plugins\vis_zmx.dll"
 
 [Code]
 
@@ -163,67 +153,6 @@ begin
     begin
       Result := false;
     end;
-  end;
-end;
-
-function GetWinampDir(Default: String): String;
-var
-  WinampDir: String;
-begin
-  WinampDir := Default;
-
-  RegQueryStringValue(HKEY_CURRENT_USER,'Software\Winamp','',WinampDir);
-  
-  Result := WinampDir;
-end;
-
-
-function LaunchNestedVisInstall(): Boolean;
-var
-  TempPath, WinampDir: String;
-  ResultCode: Integer;
-  TempBool, WinampInstalled: Boolean;
-begin
-
-  WinampInstalled := false;
-  
-  if RegQueryStringValue(HKEY_CURRENT_USER,'Software\Winamp','',WinampDir) then
-  begin
-    if DirExists(WinampDir) then
-    begin
-      WinampInstalled := true;
-    end;
-  end;
-  
-  if not WinampInstalled then
-  begin
-    WinampInstalled := (MsgBox('The installer did not detect the Winamp 2.x directory, are you sure you want to install the Winamp Visualization component? (if unsure, select No)', mbConfirmation, MB_YESNO) = idYes);
-  end;
-  
-  if WinampInstalled then
-  begin
-    //TempPath := ExpandConstant('{tmp}');
-    //TempBool := ExtractTemporaryFile('{#VIS_INSTALLER_NAME}');
-
-
-    //InstExec(TempPath + '\' + '{#VIS_INSTALLER_NAME}','',
-    //         TempPath, True, False, SW_SHOWNORMAL, ResultCode);
-
-    Result := true;
-  end else
-    Result := false;
-
-
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-  begin
-    //if srYes = ShouldProcessEntry('winampvis','') then
-    //begin
-      //LaunchNestedVisInstall();
-    //end;
   end;
 end;
 

@@ -1,4 +1,4 @@
-// Legacy ZMatrix text syntax, independent of VCL. See LICENSE.TXT.
+// Parser and formatter for ZMatrix character sets and special strings. See LICENSE.TXT.
 #include "Settings.h"
 #include <cstdio>
 #include <memory>
