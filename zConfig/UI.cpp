@@ -76,7 +76,7 @@ bool HelpCommand(HWND owner, unsigned command) {
     case IDM_PROJECT: url = L"https://github.com/payalord/ZMatrix"; break;
     case IDM_SUPPORT: case IDM_BUGS: case IDM_FEATURES: case IDM_DISCUSSION:
         url = L"https://github.com/payalord/ZMatrix/issues"; break;
-    case IDM_DONATE: url = L"http://zmatrix.n3.net/donate.html"; break;
+    case IDM_DONATE: url = L"https://zmatrix.sourceforge.net/donate.html"; break;
     case IDM_HIRE: ShowInfo(owner, true); return true;
     case IDM_ABOUT: ShowInfo(owner, false); return true;
     default: return false;

@@ -14,7 +14,7 @@ AppName=ZMatrix
 AppMutex=ZMatrix
 AppVerName=ZMatrix {#MAJOR_VER}.{#MINOR_VER}.{#RELEASE_VER}
 AppPublisher=Happy Dude
-AppPublisherURL=http://zmatrix.n3.net
+AppPublisherURL=https://zmatrix.sourceforge.net/
 AppVersion={#MAJOR_VER}.{#MINOR_VER}.{#RELEASE_VER}
 DefaultDirName={pf}\ZMatrix
 DefaultGroupName=ZMatrix
@@ -84,7 +84,7 @@ Filename: "{app}\default.cfg"; Section: "Text"; Key: "FontName"; String: "MS Ser
 [Icons]
 Name: "{group}\ZMatrix"; Filename: "{app}\matrix.exe"; WorkingDir: "{app}"
 Name: "{group}\ZMatrix Help"; Filename: "{app}\ZMatrixHelp.chm"; WorkingDir: "{app}"
-Name: "{group}\ZMatrix Homepage"; Filename: "http://zmatrix.n3.net"
+Name: "{group}\ZMatrix Homepage"; Filename: "https://zmatrix.sourceforge.net/"
 Name: "{group}\ReadMe"; Filename: "{app}\readme.txt"
 Name: "{group}\LICENSE"; Filename: "{app}\LICENSE.TXT"
 Name: "{group}\Uninstall ZMatrix"; Filename: "{uninstallexe}"

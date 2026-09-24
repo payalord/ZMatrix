@@ -5,9 +5,69 @@
 #include <richedit.h>
 #include <mmsystem.h>
 #include <algorithm>
+#include <cstring>
 
 namespace zconfig {
-struct Info { bool hire; HBITMAP bitmap = nullptr; ~Info() { if(bitmap) DeleteObject(bitmap); } };
+struct Info {
+    bool hire;
+    HWAVEOUT messageOutput = nullptr;
+    WAVEHDR messageHeader = {};
+    HBITMAP bitmap = nullptr;
+    void StopMessage() {
+        if(!messageOutput) return;
+        waveOutReset(messageOutput);
+        waveOutUnprepareHeader(messageOutput, &messageHeader, sizeof(messageHeader));
+        waveOutClose(messageOutput);
+        messageOutput = nullptr;
+        messageHeader = {};
+    }
+    ~Info() { StopMessage(); if(bitmap) DeleteObject(bitmap); }
+};
+static void StartMessage(HWND window, Info &context) {
+    const HRSRC resource = FindResourceW(Instance, MAKEINTRESOURCEW(IDR_AUTHOR_MESSAGE), L"WAVE");
+    Require(resource != nullptr, L"The original author's message is missing.");
+    const BYTE *data = static_cast<const BYTE *>(LockResource(LoadResource(Instance, resource)));
+    const size_t size = SizeofResource(Instance, resource);
+    const wchar_t *invalid = L"The original author's message has an invalid WAV format.";
+    Require(data && size >= 12 && !memcmp(data, "RIFF", 4) && !memcmp(data+8, "WAVE", 4), invalid);
+    DWORD riffSize = 0;
+    memcpy(&riffSize, data+4, sizeof(riffSize));
+    Require(riffSize >= 4 && riffSize <= size-8, invalid);
+    const size_t end = static_cast<size_t>(riffSize)+8;
+    WAVEFORMATEX format = {};
+    WAVEHDR header = {};
+    for(size_t offset = 12; offset <= end && end-offset >= 8;) {
+        const BYTE *chunk = data+offset;
+        DWORD length = 0;
+        memcpy(&length, chunk+4, sizeof(length));
+        offset += 8;
+        Require(length <= end-offset, invalid);
+        if(!memcmp(chunk, "fmt ", 4)) {
+            Require(length >= sizeof(PCMWAVEFORMAT), invalid);
+            memcpy(&format, data+offset, sizeof(PCMWAVEFORMAT));
+        } else if(!memcmp(chunk, "data", 4)) {
+            // Play the bundled PCM resource directly; its lifetime covers the dialog.
+            header.lpData = reinterpret_cast<LPSTR>(const_cast<BYTE *>(data+offset));
+            header.dwBufferLength = length;
+        }
+        offset += length;
+        if((length & 1) && offset < end) ++offset;
+    }
+    Require(format.wFormatTag == WAVE_FORMAT_PCM && format.nChannels && format.nSamplesPerSec &&
+        format.nBlockAlign && header.lpData && header.dwBufferLength && header.dwBufferLength % format.nBlockAlign == 0, invalid);
+    context.messageHeader = header;
+    try {
+        Require(waveOutOpen(&context.messageOutput, WAVE_MAPPER, &format, reinterpret_cast<DWORD_PTR>(window),
+            0, CALLBACK_WINDOW) == MMSYSERR_NOERROR, L"The audio output could not be opened.");
+        Require(waveOutPrepareHeader(context.messageOutput, &context.messageHeader, sizeof(WAVEHDR)) == MMSYSERR_NOERROR &&
+            waveOutWrite(context.messageOutput, &context.messageHeader, sizeof(WAVEHDR)) == MMSYSERR_NOERROR,
+            L"The original author's message could not be played.");
+    } catch(...) { context.StopMessage(); throw; }
+}
+static void UpdateMessageButton(HWND window, bool playing) {
+    SetDlgItemTextW(window, IDC_INFO_PLAY, playing ? L"&Stop original author message" : L"&Play original author message");
+    InvalidateRect(GetDlgItem(window, IDC_INFO_PLAY), nullptr, TRUE);
+}
 static std::wstring AuthorText(bool hire) {
     const HRSRC resource = FindResourceW(Instance, hire ? L"HIRE.HTML" : L"COMMENTS.HTML", RT_HTML);
     Require(resource != nullptr, L"The author information is missing.");
@@ -86,6 +146,46 @@ static void DrawImage(const DRAWITEMSTRUCT &draw, HBITMAP bitmap) {
         source, 0, 0, dimensions.bmWidth, dimensions.bmHeight, SRCCOPY);
     SelectObject(source, previous); DeleteDC(source);
 }
+static void DrawPlayButton(const DRAWITEMSTRUCT &draw, bool playing) {
+    const int saved = SaveDC(draw.hDC);
+    RECT bounds = draw.rcItem;
+    const bool pressed = (draw.itemState & ODS_SELECTED) != 0;
+    const bool disabled = (draw.itemState & ODS_DISABLED) != 0;
+    DrawFrameControl(draw.hDC, &bounds, DFC_BUTTON,
+        DFCS_BUTTONPUSH | (pressed ? DFCS_PUSHED : 0) | (disabled ? DFCS_INACTIVE : 0));
+    SelectObject(draw.hDC, reinterpret_cast<HFONT>(SendMessageW(draw.hwndItem, WM_GETFONT, 0, 0)));
+    SetBkMode(draw.hDC, TRANSPARENT);
+    SetTextColor(draw.hDC, GetSysColor(disabled ? COLOR_GRAYTEXT : COLOR_BTNTEXT));
+    const auto text = WindowText(draw.hwndItem);
+    const UINT format = DT_SINGLELINE | DT_VCENTER | ((draw.itemState & ODS_NOACCEL) ? DT_HIDEPREFIX : 0);
+    RECT label = {};
+    DrawTextW(draw.hDC, text.c_str(), -1, &label, format | DT_CALCRECT);
+    // Scale the vector playback symbols with the dialog font; no image resources are needed.
+    RECT symbol = {0, 0, 6, 8};
+    MapDialogRect(GetParent(draw.hwndItem), &symbol);
+    const int gap = symbol.right / 2;
+    const int left = bounds.left + (bounds.right-bounds.left-label.right-symbol.right-gap)/2 + (pressed ? 1 : 0);
+    const int top = bounds.top + (bounds.bottom-bounds.top-symbol.bottom)/2 + (pressed ? 1 : 0);
+    SelectObject(draw.hDC, GetStockObject(DC_BRUSH));
+    SelectObject(draw.hDC, GetStockObject(NULL_PEN));
+    SetDCBrushColor(draw.hDC, disabled ? GetSysColor(COLOR_GRAYTEXT) : RGB(0, 160, 64));
+    if(playing) {
+        const int squareTop = top + (symbol.bottom-symbol.right)/2;
+        Rectangle(draw.hDC, left, squareTop, left+symbol.right, squareTop+symbol.right);
+    } else {
+        const POINT triangle[] = {{left, top}, {left, top+symbol.bottom}, {left+symbol.right, top+symbol.bottom/2}};
+        Polygon(draw.hDC, triangle, _countof(triangle));
+    }
+    bounds.left = left + symbol.right + gap;
+    if(pressed) OffsetRect(&bounds, 0, 1);
+    DrawTextW(draw.hDC, text.c_str(), -1, &bounds, format);
+    if((draw.itemState & ODS_FOCUS) && !(draw.itemState & ODS_NOFOCUSRECT)) {
+        bounds = draw.rcItem;
+        InflateRect(&bounds, -3, -3);
+        DrawFocusRect(draw.hDC, &bounds);
+    }
+    RestoreDC(draw.hDC, saved);
+}
 static INT_PTR CALLBACK InfoProcedure(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
     auto context = reinterpret_cast<Info *>(GetWindowLongPtrW(window, DWLP_USER));
     try {
@@ -104,13 +204,24 @@ static INT_PTR CALLBACK InfoProcedure(HWND window, UINT message, WPARAM wparam, 
             SendMessageW(edit, EM_SETSEL, 0, 0);
             SendMessageW(edit, EM_SCROLL, SB_TOP, 0);
             context->bitmap = LoadBitmapW(Instance, MAKEINTRESOURCEW(context->hire ? IDB_HIRE : IDB_AUTHOR));
-            if(!context->hire) PlaySoundW(MAKEINTRESOURCEW(102), Instance, SND_RESOURCE | SND_ASYNC | SND_NODEFAULT);
+            ShowWindow(GetDlgItem(window, IDC_INFO_PLAY), context->hire ? SW_HIDE : SW_SHOW);
             SetFocus(GetDlgItem(window, IDOK));
             return FALSE;
         }
         if(!context) return FALSE;
-        if(message == WM_DRAWITEM && reinterpret_cast<DRAWITEMSTRUCT *>(lparam)->CtlID == IDC_INFO_IMAGE) {
-            DrawImage(*reinterpret_cast<DRAWITEMSTRUCT *>(lparam), context->bitmap); return TRUE;
+        if(message == MM_WOM_DONE) {
+            // A queued notification from Stop must not stop a subsequently started message.
+            if(reinterpret_cast<HWAVEOUT>(wparam) == context->messageOutput &&
+                lparam == reinterpret_cast<LPARAM>(&context->messageHeader) && (context->messageHeader.dwFlags & WHDR_DONE)) {
+                context->StopMessage();
+                UpdateMessageButton(window, false);
+            }
+            return TRUE;
+        }
+        if(message == WM_DRAWITEM) {
+            const auto &draw = *reinterpret_cast<DRAWITEMSTRUCT *>(lparam);
+            if(draw.CtlID == IDC_INFO_IMAGE) { DrawImage(draw, context->bitmap); return TRUE; }
+            if(draw.CtlID == IDC_INFO_PLAY) { DrawPlayButton(draw, context->messageOutput != nullptr); return TRUE; }
         }
         if(message == WM_NOTIFY) {
             const auto link = reinterpret_cast<ENLINK *>(lparam);
@@ -124,12 +235,19 @@ static INT_PTR CALLBACK InfoProcedure(HWND window, UINT message, WPARAM wparam, 
         if(message == WM_COMMAND) {
             switch(LOWORD(wparam)) {
             case IDOK: case IDCANCEL: EndDialog(window, IDOK); return TRUE;
+            case IDC_INFO_PLAY:
+                if(!context->hire && HIWORD(wparam) == BN_CLICKED) {
+                    if(context->messageOutput) context->StopMessage();
+                    else StartMessage(window, *context);
+                    UpdateMessageButton(window, context->messageOutput != nullptr);
+                }
+                return TRUE;
             case IDC_DONATE: HelpCommand(window, IDM_DONATE); return TRUE;
             case IDC_HOMEPAGE: HelpCommand(window, IDM_HOMEPAGE); return TRUE;
             }
         }
         if(message == WM_CLOSE) { EndDialog(window, IDOK); return TRUE; }
-        if(message == WM_DESTROY && !context->hire) PlaySoundW(nullptr, nullptr, 0);
+        if(message == WM_DESTROY) context->StopMessage();
     } catch(const Error &error) { ShowError(window, error); }
     catch(...) { ShowUnexpectedError(window); }
     if(message == WM_INITDIALOG) EndDialog(window, IDCANCEL);
