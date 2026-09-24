@@ -103,14 +103,25 @@ int wmain(int argc,wchar_t **argv) {
         for(int y=0;y<height;++y) for(int x=0;x<width;++x)
             background.pixels[y*width+x]=RGB((x*3+y)%256,(y*5+x)%256,(x+y*2)%256);
         alternate.Fill(0xc83675);
-        for(DWORD color:{0u,0x1d2f3du}) for(int mode=0;mode<4;++mode) for(bool opaque:{false,true}) for(bool special:{false,true}) {
+        for(bool glow:{false,true}) for(DWORD color:{0u,0x1d2f3du}) for(int mode=0;mode<4;++mode) for(bool opaque:{false,true}) for(bool special:{false,true}) {
             Engine engine(L".\\zsMatrix.dll");
             Check(ReadBlendStrength(*engine.matrix)==100,"New engine must default to full strength.");
+            Check(!ReadGlowEnabled(*engine.matrix),"New engine must default to glow off.");
+            Check(ApplyGlowEnabled(*engine.matrix,glow),"Missing glow interface.");
             Configure(*engine.matrix,window,background,mode,opaque,special,color);
             const auto full=Frame(*engine.matrix,output,color,special);
             Check(full!=std::vector<DWORD>(width*height,color),"Test did not render any characters.");
             Check(full.front()==color && full.back()==color,"First frame exposed wallpaper outside the streams.");
-            if(argc>1) {
+            if(glow) {
+                ApplyGlowEnabled(*engine.matrix,false);
+                const auto disabled=Frame(*engine.matrix,output,color,special);
+                Check(disabled!=full,"Enabling glow did not change the rendered characters.");
+                Engine reference(argc>1 ? argv[1] : L".\\zsMatrix.dll");
+                Configure(*reference.matrix,window,background,mode,opaque,special,color);
+                Check(Frame(*reference.matrix,output,color,special)==disabled,"Disabling glow did not restore the original renderer.");
+                ApplyGlowEnabled(*engine.matrix,true);
+            }
+            if(argc>1 && !glow) {
                 Engine previous(argv[1]);
                 Configure(*previous.matrix,window,background,mode,opaque,special,color);
                 Check(Frame(*previous.matrix,output,color,special)==full,"100% changed the original rendering from a solid/black start.");
@@ -127,10 +138,12 @@ int wmain(int argc,wchar_t **argv) {
             }
             Check(ApplyBlendStrength(*engine.matrix,0),"Missing appearance interface.");
             const auto plain=Frame(*engine.matrix,output,color,special);
-            Engine solid(argc>1 ? argv[1] : L".\\zsMatrix.dll");
+            Engine solid(argc>1 && !glow ? argv[1] : L".\\zsMatrix.dll");
+            if(glow) ApplyGlowEnabled(*solid.matrix,true);
             Configure(*solid.matrix,window,background,3,opaque,special,color);
             Check(Frame(*solid.matrix,output,color,special)==plain,"Zero strength differs from plain text on the selected background.");
             Engine other(L".\\zsMatrix.dll");
+            ApplyGlowEnabled(*other.matrix,glow);
             Configure(*other.matrix,window,alternate,mode,opaque,special,color);
             ApplyBlendStrength(*other.matrix,0);
             Check(Frame(*other.matrix,output,color,special)==plain,"Wallpaper affects zero-strength characters.");
@@ -162,9 +175,11 @@ int wmain(int argc,wchar_t **argv) {
                     Check(clipped[y*width+x]==mixed[(y+3)*width+x-7],"Character colors changed with target clipping/origin.");
             }
             Engine copy(L".\\zsMatrix.dll"); copy.matrix->CopyFrom(*engine.matrix);
+            Check(ReadGlowEnabled(*copy.matrix)==glow,"Engine copy lost glow state.");
             Check(ReadBlendStrength(*copy.matrix)==50,"Engine copy lost blend strength.");
             copy.matrix->CopyFrom(*copy.matrix);
             Check(ReadBlendStrength(*copy.matrix)==50,"Self-copy damaged the appearance state.");
+            Check(ReadGlowEnabled(*copy.matrix)==glow,"Self-copy damaged glow state.");
             ApplyBlendStrength(*copy.matrix,200);
             Check(ReadBlendStrength(*copy.matrix)==100,"Engine accepted strength above 100%.");
             // Cleanup and off-screen glyphs must obey the same endpoint/interpolation rules.

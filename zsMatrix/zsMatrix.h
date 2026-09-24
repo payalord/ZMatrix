@@ -171,7 +171,7 @@ protected:
 EXPIMP_TEMPLATE template class std::vector<_TCHAR>;
 EXPIMP_TEMPLATE template class std::vector<IzsMatrixStream *>;
 
-class zsMatrix : public IzsMatrix, public IzsMatrixAppearance
+class zsMatrix : public IzsMatrix, public IzsMatrixAppearance, public IzsMatrixGlow
 {
 public:
 
@@ -193,6 +193,8 @@ public:
 	int __stdcall Render(HDC hdc);
 	void __stdcall SetBlendStrength(unsigned percent) { BlendStrength = percent > 100 ? 100 : percent; }
 	unsigned __stdcall GetBlendStrength() const { return BlendStrength; }
+	void __stdcall SetGlowEnabled(BOOL enabled) { GlowEnabled = enabled != FALSE; }
+	BOOL __stdcall GetGlowEnabled() const { return GlowEnabled; }
 
 
 	void __stdcall UpdateTarget(HWND hWnd,HBITMAP BGBITMAP);
@@ -365,6 +367,10 @@ public:
 		{
 			*ppObject=static_cast<IzsMatrixAppearance*>(this);
 		}
+		else if (riid==IID_IZSMATRIXGLOW)
+		{
+			*ppObject=static_cast<IzsMatrixGlow*>(this);
+		}
 		else
 		{
 			return E_NOINTERFACE;
@@ -442,6 +448,7 @@ private:
 	HBITMAP hBackBitmap;
 
 	unsigned BlendStrength = 100;
+	bool GlowEnabled = false;
 
 	HWND hWnd;
 
@@ -506,6 +513,7 @@ private:
 		bool IsSpecialStringChar;
 	};
 	void CalcCurrentAndPreceedingCharDetails(const IzsMatrixStream *Stream,zsCharDetails &Current,zsCharDetails &Preceeding) const;
+	void DrawCharacter(HDC target, const zsCharDetails &character, bool mask = false) const;
 	void PresentBitmapCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds);
 	void DrawBitmapCleanup(HDC target, const RECT &area, const RECT &bitmapBounds);
 

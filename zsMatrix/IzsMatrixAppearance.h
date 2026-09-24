@@ -32,3 +32,31 @@ inline bool ApplyBlendStrength(IzsMatrix &matrix, unsigned percent) {
     appearance->Release();
     return true;
 }
+
+// A separate interface keeps the existing appearance vtable compatible.
+// {A3EB0DCF-DDB4-4FAD-91EF-6BFC74762A01}
+static const GUID IID_IZSMATRIXGLOW =
+{0xa3eb0dcf, 0xddb4, 0x4fad, {0x91, 0xef, 0x6b, 0xfc, 0x74, 0x76, 0x2a, 0x01}};
+
+class IzsMatrixGlow : public IUnknown {
+public:
+    virtual void __stdcall SetGlowEnabled(BOOL enabled) = 0;
+    virtual BOOL __stdcall GetGlowEnabled() const = 0;
+};
+
+inline bool ReadGlowEnabled(const IzsMatrix &matrix) {
+    IzsMatrixGlow *glow = nullptr;
+    if(FAILED(const_cast<IzsMatrix &>(matrix).QueryInterface(
+        IID_IZSMATRIXGLOW, reinterpret_cast<void **>(&glow)))) return false;
+    const bool enabled = glow->GetGlowEnabled() != FALSE;
+    glow->Release();
+    return enabled;
+}
+
+inline bool ApplyGlowEnabled(IzsMatrix &matrix, bool enabled) {
+    IzsMatrixGlow *glow = nullptr;
+    if(FAILED(matrix.QueryInterface(IID_IZSMATRIXGLOW, reinterpret_cast<void **>(&glow)))) return false;
+    glow->SetGlowEnabled(enabled);
+    glow->Release();
+    return true;
+}

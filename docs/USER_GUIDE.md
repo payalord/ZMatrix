@@ -55,6 +55,13 @@ the bright leading character; Trail is the faded character left behind it.
 Background selects the background color. Copy ordinary colors to special
 copies the ordinary Lead and Trail colors to the special-string colors.
 
+Enable glow adds a fixed, narrow halo in the character's color. It is off by
+default and applies to both ordinary and special text, including audio color
+changes. The effect stays inside each character area, so its edges may be
+clipped with tightly packed fonts. It adds drawing work without extra image
+buffers. Changes appear as streams draw new characters; existing trails remain
+until they are redrawn or cleared.
+
 Audio reaction can change visible colors even if these selections have not
 changed. See Keeping the original palette below.
 

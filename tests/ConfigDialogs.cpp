@@ -81,6 +81,9 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
             }
             Check(!IsWindowEnabled(GetDlgItem(window,IDC_AUDIO)),"Legacy ABI unexpectedly enabled the audio editor.");
             sawConfig = true;
+            Check(IsWindowEnabled(GetDlgItem(window,IDC_GLOW)) && !IsDlgButtonChecked(window,IDC_GLOW),"Glow checkbox did not show the initial state.");
+            Click(window,IDC_GLOW);
+            Check(ReadGlowEnabled(*matrix),"Glow checkbox did not preview immediately.");
             Capture(window,L"config");
             Check(GetDlgItemInt(window,IDC_MAX_STREAM,nullptr,FALSE)==137,"Initial stream value not shown.");
             SetDlgItemInt(window,IDC_MAX_STREAM,173,FALSE);
@@ -229,11 +232,13 @@ int wmain(int argc,wchar_t **argv) {
             matrix->SetMaxStream(137); matrix->SetValidCharSet(L"01",2);
             matrix->SetBGMode(bgmodeBitmap); matrix->SetSpecialStringStreamProbability(0.1f);
             Check(ApplyBlendStrength(*matrix,100),"Missing appearance interface.");
+            Check(ApplyGlowEnabled(*matrix,false),"Missing glow interface.");
             refresh=41; priority=initialPriority; SetPriorityClass(GetCurrentProcess(),initialPriority);
             Check((configure(matrix,refresh,priority)!=0)==accept,"Dialog return value changed.");
             Check(sawConfig && sawCharacters && !failed,"Configuration or character dialog failed.");
             Check(matrix->GetMaxStream()==(accept?173u:137u) && refresh==(accept?61u:41u),"Accept/Cancel did not preserve expected state.");
             Check(ReadBlendStrength(*matrix)==(accept?35u:100u),"Accept/Cancel did not preserve blend strength.");
+            Check(ReadGlowEnabled(*matrix)==accept,"Accept/Cancel did not preserve glow state.");
             if(!accept) Check(priority==initialPriority && GetPriorityClass(GetCurrentProcess())==initialPriority,"Cancel did not restore process priority.");
         }
         testingAudio = true;

@@ -63,6 +63,7 @@ static void SetValues(IzsMatrix *matrix)
     matrix->SetSpecialStringStreamProbability(0.1234567f);
     matrix->SetBGMode(bgmodeColor); matrix->SetBlendMode(blendmodeAND);
     Check(ApplyBlendStrength(*matrix, 37), "Missing appearance interface.");
+    Check(ApplyGlowEnabled(*matrix, true), "Missing glow interface.");
     matrix->SetColor(12,34,56,78); matrix->SetFadeColor(90,123,145,167);
     matrix->SetBGColor(23,45,67,89); matrix->SetSpecialStringColor(98,76,54,32);
     matrix->SetSpecialStringFadeColor(21,43,65,87); matrix->SetSpecialStringBGColor(210,190,170,150);
@@ -90,6 +91,7 @@ static void CheckValues(IzsMatrix *matrix)
     Check(matrix->GetSpecialStringStreamProbability()==0.1234567f,"Probability precision changed.");
     Check(matrix->GetBGMode()==bgmodeColor && matrix->GetBlendMode()==blendmodeAND,"Background/blend modes changed.");
     Check(ReadBlendStrength(*matrix)==37,"Blend strength changed.");
+    Check(ReadGlowEnabled(*matrix),"Glow setting changed.");
     BYTE r,g,b,a;
     matrix->GetColor(r,g,b,a); Check(r==12 && g==34 && b==56 && a==78,"Foreground RGBA changed.");
     matrix->GetFadeColor(r,g,b,a); Check(r==90 && g==123 && b==145 && a==167,"Fade RGBA changed.");
@@ -152,6 +154,7 @@ int wmain(int argc, wchar_t **argv)
             Check(matrix.ptr->GetMaxStream() == 1000 && refresh == 50 && priority == IDLE_PRIORITY_CLASS,
                   "Legacy default.cfg values were not loaded.");
             Check(ReadBlendStrength(*matrix.ptr)==100,"Default blend strength is not 100%.");
+            Check(!ReadGlowEnabled(*matrix.ptr),"Glow must default to off.");
             const wchar_t *names[] = {L"settings.cfg", L"with spaces.cfg", L"\x041d\x0430\x0441\x0442\x0440\x043e\x0439\x043a\x0438.cfg", L"\x65e5\x672c\x8a9e.cfg"};
             for(const wchar_t *name : names)
             {
@@ -175,6 +178,7 @@ int wmain(int argc, wchar_t **argv)
                 matrix.ptr->SetSpecialStringStreamProbability(0.5f);
                 matrix.ptr->SetBGMode(bgmodeBitmap); matrix.ptr->SetBlendMode(blendmodeOR);
                 ApplyBlendStrength(*matrix.ptr, 99);
+                ApplyGlowEnabled(*matrix.ptr, false);
                 matrix.ptr->SetColor(0,0,0,0); matrix.ptr->SetFadeColor(0,0,0,0); matrix.ptr->SetBGColor(0,0,0,0);
                 matrix.ptr->SetSpecialStringColor(0,0,0,0); matrix.ptr->SetSpecialStringFadeColor(0,0,0,0); matrix.ptr->SetSpecialStringBGColor(0,0,0,0);
                 refresh = 0;
@@ -200,6 +204,8 @@ int wmain(int argc, wchar_t **argv)
                 Check(save(matrix.ptr,41,priority,temp.path.c_str())!=0,"Cannot save appearance fixture.");
                 Check(WritePrivateProfileStringW(L"Colors",L"BlendStrength",nullptr,temp.path.c_str())!=FALSE,"Cannot remove new key for legacy fixture.");
                 Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0 && ReadBlendStrength(*matrix.ptr)==100,"Old CFG must restore full strength.");
+                WritePrivateProfileStringW(L"Colors",L"GlowEnabled",nullptr,temp.path.c_str());
+                Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0 && !ReadGlowEnabled(*matrix.ptr),"Old CFG must disable glow.");
                 const wchar_t *values[] = {L"-7",L"250",L"invalid"};
                 const unsigned expected[] = {0,100,100};
                 for(unsigned i=0;i<3;++i) {

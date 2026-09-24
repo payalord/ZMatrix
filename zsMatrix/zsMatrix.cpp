@@ -556,7 +556,7 @@ CoeffG1(Other.CoeffG1),CoeffG0(Other.CoeffG0),
 CoeffB1(Other.CoeffB1),CoeffB0(Other.CoeffB0),
 CoeffA1(Other.CoeffA1),CoeffA0(Other.CoeffA0),
 textHeight(Other.textHeight),textWidth(Other.textWidth),
-hWnd(Other.hWnd),BGMode(Other.BGMode),BlendMode(Other.BlendMode),BlendStrength(Other.BlendStrength)
+hWnd(Other.hWnd),BGMode(Other.BGMode),BlendMode(Other.BlendMode),BlendStrength(Other.BlendStrength),GlowEnabled(Other.GlowEnabled)
 {
 	this->RefCount = 0;
 
@@ -654,6 +654,7 @@ hWnd(Other.hWnd),BGMode(Other.BGMode),BlendMode(Other.BlendMode),BlendStrength(O
 zsMatrix::zsMatrix(const IzsMatrix &Other)
 {
 	this->BlendStrength = ReadBlendStrength(Other);
+	this->GlowEnabled = ReadGlowEnabled(Other);
 	this->RefCount = 0;
 	this->hWnd = Other.GethWnd();
 
@@ -852,6 +853,7 @@ zsMatrix &zsMatrix::operator=(const IzsMatrix &Other)
 {
 	if (static_cast<const IzsMatrix*>(this) == &Other) return *this;
 	this->BlendStrength = ReadBlendStrength(Other);
+	this->GlowEnabled = ReadGlowEnabled(Other);
 
 	if ((this->hBackDC != NULL) && (0 == DeleteDC(this->hBackDC)))
 		PrintError("Failed to delete the back DC");
@@ -1025,6 +1027,34 @@ int zsMatrix::Render(HDC hdc)
 	return true;
 }
 
+void zsMatrix::DrawCharacter(HDC target, const zsCharDetails &character, bool mask) const
+{
+	if (!GlowEnabled)
+	{
+		TextOut(target, character.TextPoint.x, character.TextPoint.y, &character.Char, 1);
+		return;
+	}
+
+	const COLORREF color = GetTextColor(target);
+	const COLORREF background = GetBkColor(target);
+	const int previousMode = SetBkMode(target, TRANSPARENT);
+	if (previousMode == OPAQUE)
+		ExtTextOut(target, 0, 0, ETO_OPAQUE, &character.Rect, NULL, 0, NULL);
+
+	// Four faint, one-pixel copies stay inside the existing draw/cleanup area.
+	// The OR blend mask must include the entire halo at full mask intensity.
+	SetTextColor(target, mask ? color : RGB(
+		(GetRValue(color) + 3 * GetRValue(background)) / 4,
+		(GetGValue(color) + 3 * GetGValue(background)) / 4,
+		(GetBValue(color) + 3 * GetBValue(background)) / 4));
+	static const POINT offsets[] = {{-1,0},{1,0},{0,-1},{0,1}};
+	for (const POINT &offset : offsets)
+		ExtTextOut(target, character.TextPoint.x + offset.x, character.TextPoint.y + offset.y,
+			ETO_CLIPPED, &character.Rect, &character.Char, 1, NULL);
+	SetTextColor(target, color);
+	ExtTextOut(target, character.TextPoint.x, character.TextPoint.y, ETO_CLIPPED, &character.Rect, &character.Char, 1, NULL);
+	SetBkMode(target, previousMode);
+}
 void zsMatrix::PresentBitmapCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds)
 {
 	const RECT &area = character.Rect;
@@ -1040,7 +1070,7 @@ void zsMatrix::PresentBitmapCharacter(HDC target, const zsCharDetails &character
 	SelectObject(hTempSpaceDC, character.Font);
 	SetTextColor(hTempSpaceDC, character.Color);
 	const int previousMode = SetBkMode(hTempSpaceDC, TRANSPARENT);
-	TextOut(hTempSpaceDC, character.TextPoint.x, character.TextPoint.y, &character.Char, 1);
+	DrawCharacter(hTempSpaceDC, character);
 	SetBkMode(hTempSpaceDC, previousMode);
 	RECT clipped;
 	if (BlendStrength && IntersectRect(&clipped, &area, &bitmapBounds))
@@ -2065,8 +2095,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 							SelectObject(this->hTempSpaceDC,BrightCharDetails.Font);
 							SetTextColor(this->hTempSpaceDC,BrightCharDetails.Color);
-							TextOut(this->hTempSpaceDC,BrightCharDetails.TextPoint.x,BrightCharDetails.TextPoint.y,
-									&BrightCharDetails.Char,1);
+							DrawCharacter(this->hTempSpaceDC, BrightCharDetails);
 
 
 							BitBlt(this->hBackDC,BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
@@ -2096,8 +2125,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 							SelectObject(this->hTempSpaceDC,DimCharDetails.Font);
 							SetTextColor(this->hTempSpaceDC,DimCharDetails.Color);
-							TextOut(this->hTempSpaceDC,DimCharDetails.TextPoint.x,DimCharDetails.TextPoint.y,
-									&DimCharDetails.Char,1);
+							DrawCharacter(this->hTempSpaceDC, DimCharDetails);
 
 
 							BitBlt(this->hBackDC,DimCharDetails.Rect.left,DimCharDetails.Rect.top,
@@ -2144,8 +2172,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 							SelectObject(this->hTempSpaceDC,BrightCharDetails.Font);
 							SetTextColor(this->hTempSpaceDC,BrightCharDetails.Color);
-							TextOut(this->hTempSpaceDC,BrightCharDetails.TextPoint.x,BrightCharDetails.TextPoint.y,
-									&BrightCharDetails.Char,1);
+							DrawCharacter(this->hTempSpaceDC, BrightCharDetails);
 
 							BitBlt(this->hBackDC,BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
 								   WIDTH(BrightCharDetails.Rect),HEIGHT(BrightCharDetails.Rect),
@@ -2170,8 +2197,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 							SelectObject(this->hTempSpaceDC,DimCharDetails.Font);
 							SetTextColor(this->hTempSpaceDC,DimCharDetails.Color);
-							TextOut(this->hTempSpaceDC,DimCharDetails.TextPoint.x,DimCharDetails.TextPoint.y,
-									&DimCharDetails.Char,1);
+							DrawCharacter(this->hTempSpaceDC, DimCharDetails);
 
 							BitBlt(this->hBackDC,DimCharDetails.Rect.left,DimCharDetails.Rect.top,
 								   WIDTH(DimCharDetails.Rect),HEIGHT(DimCharDetails.Rect),
@@ -2220,8 +2246,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 							SelectObject(this->hTempSpaceDC,BrightCharDetails.Font);
 							SetTextColor(this->hTempSpaceDC,BrightCharDetails.Color);
-							TextOut(this->hTempSpaceDC,BrightCharDetails.TextPoint.x,BrightCharDetails.TextPoint.y,
-									&BrightCharDetails.Char,1);
+							DrawCharacter(this->hTempSpaceDC, BrightCharDetails);
 
 							BitBlt(this->hBackDC,BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
 								   WIDTH(BrightCharDetails.Rect),HEIGHT(BrightCharDetails.Rect),
@@ -2231,8 +2256,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 
 							SetTextColor(this->hTempSpaceDC,RGB(255,255,255));
-							TextOut(this->hTempSpaceDC,BrightCharDetails.TextPoint.x,BrightCharDetails.TextPoint.y,
-									&BrightCharDetails.Char,1);
+							DrawCharacter(this->hTempSpaceDC, BrightCharDetails, true);
 
 
 							BitBlt(this->hBackDC,BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
@@ -2259,8 +2283,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 							SelectObject(this->hTempSpaceDC,DimCharDetails.Font);
 							SetTextColor(this->hTempSpaceDC,DimCharDetails.Color);
-							TextOut(this->hTempSpaceDC,DimCharDetails.TextPoint.x,DimCharDetails.TextPoint.y,
-									&DimCharDetails.Char,1);
+							DrawCharacter(this->hTempSpaceDC, DimCharDetails);
 
 							BitBlt(this->hBackDC,DimCharDetails.Rect.left,DimCharDetails.Rect.top,
 								   WIDTH(DimCharDetails.Rect),HEIGHT(DimCharDetails.Rect),
@@ -2270,8 +2293,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 
 							SetTextColor(this->hTempSpaceDC,RGB(255,255,255));
-							TextOut(this->hTempSpaceDC,DimCharDetails.TextPoint.x,DimCharDetails.TextPoint.y,
-									&DimCharDetails.Char,1);
+							DrawCharacter(this->hTempSpaceDC, DimCharDetails, true);
 
 
 							BitBlt(this->hBackDC,DimCharDetails.Rect.left,DimCharDetails.Rect.top,
@@ -2342,8 +2364,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 					SelectObject(this->hTempSpaceDC,BrightCharDetails.Font);
 					SetTextColor(this->hTempSpaceDC,BrightCharDetails.Color);
-					TextOut(this->hTempSpaceDC,BrightCharDetails.TextPoint.x,BrightCharDetails.TextPoint.y,
-							&BrightCharDetails.Char,1);
+					DrawCharacter(this->hTempSpaceDC, BrightCharDetails);
 
 					BitBlt(this->hBackDC,BrightCharDetails.Rect.left,BrightCharDetails.Rect.top,
 						   WIDTH(BrightCharDetails.Rect),HEIGHT(BrightCharDetails.Rect),
@@ -2370,8 +2391,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 					SelectObject(this->hTempSpaceDC,DimCharDetails.Font);
 					SetTextColor(this->hTempSpaceDC,DimCharDetails.Color);
-					TextOut(this->hTempSpaceDC,DimCharDetails.TextPoint.x,DimCharDetails.TextPoint.y,
-							&DimCharDetails.Char,1);
+					DrawCharacter(this->hTempSpaceDC, DimCharDetails);
 
 					BitBlt(this->hBackDC,DimCharDetails.Rect.left,DimCharDetails.Rect.top,
 						   WIDTH(DimCharDetails.Rect),HEIGHT(DimCharDetails.Rect),
@@ -2434,13 +2454,13 @@ void zsMatrix::DisplayStreams(HDC hdc)
 					//First Operation -- Output a random character in brighter color
 					SelectObject(hdc,BrightCharDetails.Font);
 					SetTextColor(hdc,BrightCharDetails.Color);
-					TextOut(hdc,BrightCharDetails.TextPoint.x,BrightCharDetails.TextPoint.y,&BrightCharDetails.Char,1);
+					DrawCharacter(hdc, BrightCharDetails);
 
 
 					//Second Operation -- Output another random character in a dimmer color
 					SelectObject(hdc,DimCharDetails.Font);
 					SetTextColor(hdc,DimCharDetails.Color);
-					TextOut(hdc,DimCharDetails.TextPoint.x,DimCharDetails.TextPoint.y,&DimCharDetails.Char,1);
+					DrawCharacter(hdc, DimCharDetails);
 
 
 
@@ -2474,7 +2494,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 							  BrightCharDetails.Rect.bottom);
 					SelectObject(hdc,BrightCharDetails.Font);
 					SetTextColor(hdc,BrightCharDetails.Color);
-					TextOut(hdc,BrightCharDetails.TextPoint.x,BrightCharDetails.TextPoint.y,&BrightCharDetails.Char,1);
+					DrawCharacter(hdc, BrightCharDetails);
 
 
 					//Second Operation -- Output another random character in a dimmer color
@@ -2486,7 +2506,7 @@ void zsMatrix::DisplayStreams(HDC hdc)
 							  DimCharDetails.Rect.bottom);
 					SelectObject(hdc,DimCharDetails.Font);
 					SetTextColor(hdc,DimCharDetails.Color);
-					TextOut(hdc,DimCharDetails.TextPoint.x,DimCharDetails.TextPoint.y,&DimCharDetails.Char,1);
+					DrawCharacter(hdc, DimCharDetails);
 
 
 

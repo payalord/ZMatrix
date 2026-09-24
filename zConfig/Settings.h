@@ -26,6 +26,7 @@ struct Settings {
     TBGMode backgroundMode;
     TBlendMode blendMode;
     unsigned blendStrength;
+    bool glowEnabled;
     std::vector<wchar_t> characters;
     std::vector<std::wstring> strings;
 };

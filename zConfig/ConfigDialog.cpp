@@ -71,6 +71,9 @@ struct Editor {
         IzsMatrixAppearance *appearance = nullptr;
         const bool supported = SUCCEEDED(matrix.QueryInterface(IID_IZSMATRIXAPPEARANCE, reinterpret_cast<void **>(&appearance))) && settings.backgroundMode == bgmodeBitmap;
         if(appearance) appearance->Release();
+        IzsMatrixGlow *glow = nullptr;
+        EnableWindow(GetDlgItem(window, IDC_GLOW), SUCCEEDED(matrix.QueryInterface(IID_IZSMATRIXGLOW, reinterpret_cast<void **>(&glow))));
+        if(glow) glow->Release();
         EnableWindow(GetDlgItem(window, IDC_BLEND_STRENGTH), supported);
         EnableWindow(GetDlgItem(window, IDC_BLEND_STRENGTH+SLIDER_OFFSET), supported);
     }
@@ -84,6 +87,7 @@ struct Editor {
         SetDlgItemTextW(window, IDC_SPECIAL_FONT_NAME, settings.specialFont.lfFaceName);
         CheckDlgButton(window, IDC_MONOTONOUS, settings.monotonous ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(window, IDC_RANDOMIZED, settings.randomized ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(window, IDC_GLOW, settings.glowEnabled ? BST_CHECKED : BST_UNCHECKED);
         SendDlgItemMessageW(window, IDC_BG_MODE, CB_SETCURSEL, settings.backgroundMode == bgmodeColor ? 1 : 0, 0);
         SendDlgItemMessageW(window, IDC_BLEND, CB_SETCURSEL, settings.blendMode, 0);
         SendDlgItemMessageW(window, IDC_TEXT_BACKGROUND, CB_SETCURSEL, settings.background.a >= 128 ? 1 : 0, 0);
@@ -138,7 +142,8 @@ static void DrawColor(const DRAWITEMSTRUCT &draw, Color color) {
     if(draw.itemState & ODS_FOCUS) { InflateRect(&bounds, -3, -3); DrawFocusRect(draw.hDC, &bounds); }
 }
 static void DrawPreview(const DRAWITEMSTRUCT &draw, const Settings &s) {
-    HBRUSH brush = CreateSolidBrush(RGB(s.background.r,s.background.g,s.background.b));
+    const COLORREF background = RGB(s.background.r,s.background.g,s.background.b);
+    HBRUSH brush = CreateSolidBrush(background);
     FillRect(draw.hDC, &draw.rcItem, brush); DeleteObject(brush);
     SetBkMode(draw.hDC, TRANSPARENT);
     const Color colors[] = {s.foreground, s.fade, s.specialForeground, s.specialFade};
@@ -149,8 +154,26 @@ static void DrawPreview(const DRAWITEMSTRUCT &draw, const Settings &s) {
         font.lfHeight = -(draw.rcItem.bottom-draw.rcItem.top-4); font.lfWidth = 0;
         HFONT handle = CreateFontIndirectW(&font);
         HGDIOBJ previous = SelectObject(draw.hDC, handle);
-        SetTextColor(draw.hDC, RGB(colors[i].r,colors[i].g,colors[i].b));
+        const COLORREF color = RGB(colors[i].r,colors[i].g,colors[i].b);
+        SetTextColor(draw.hDC, color);
         RECT bounds = draw.rcItem; bounds.left += i*width; bounds.right = bounds.left+width;
+        if(s.glowEnabled) {
+            const int saved = SaveDC(draw.hDC);
+            if(saved) {
+                IntersectClipRect(draw.hDC, bounds.left, bounds.top, bounds.right, bounds.bottom);
+                // Match the renderer's four faint, one-pixel copies on the sample background.
+                SetTextColor(draw.hDC, RGB(
+                    (GetRValue(color) + 3 * GetRValue(background)) / 4,
+                    (GetGValue(color) + 3 * GetGValue(background)) / 4,
+                    (GetBValue(color) + 3 * GetBValue(background)) / 4));
+                static const POINT offsets[] = {{-1,0},{1,0},{0,-1},{0,1}};
+                for(const POINT &offset : offsets) {
+                    RECT shifted = bounds; OffsetRect(&shifted, offset.x, offset.y);
+                    DrawTextW(draw.hDC, L"Aa", -1, &shifted, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+                }
+                RestoreDC(draw.hDC, saved);
+            }
+        }
         DrawTextW(draw.hDC, L"Aa", -1, &bounds, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         SelectObject(draw.hDC, previous); DeleteObject(handle);
     }
@@ -235,6 +258,12 @@ static INT_PTR CALLBACK ConfigProcedure(HWND window, UINT message, WPARAM wparam
             context->Preview(); context->EnableControls(window); return TRUE;
         }
         if(code != BN_CLICKED) return FALSE;
+        if(id == IDC_GLOW) {
+            s.glowEnabled = IsDlgButtonChecked(window, id) == BST_CHECKED;
+            ApplyGlowEnabled(context->matrix, s.glowEnabled);
+            InvalidateRect(GetDlgItem(window, IDC_PREVIEW), nullptr, FALSE);
+            return TRUE;
+        }
         if(auto color = context->ColorFor(id)) {
             CHOOSECOLORW choose = {sizeof(choose)};
             choose.hwndOwner = window; choose.rgbResult = RGB(color->r, color->g, color->b);

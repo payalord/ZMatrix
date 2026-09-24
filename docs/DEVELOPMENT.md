@@ -13,7 +13,7 @@ Z. Shaker, 2001-2002. Retain source notices; see [LICENSE.TXT](../LICENSE.TXT).
   drawing is suspended when the host is invalid.
 - `zsMatrix`: COM rendering engine, streams, characters and wallpaper blending.
   The original `IzsMatrix` ABI is retained. `IzsMatrixAppearance.h` supplies the
-  optional Blend strength interface without changing the original vtable.
+  optional Blend strength and glow interfaces without changing existing vtables.
 - `zConfig`: native Win32 configuration, audio, character, help and information
   dialogs, plus CFG persistence. Output: `Config.dll`. Original Unicode/stdcall
   entry points remain; new functionality uses additional exports.
@@ -36,6 +36,11 @@ Rendering is incremental. Blend strength mixes plain characters with the
 wallpaper-blended result in the character-sized work area. Do not introduce a
 fullscreen alpha layer or repaint the entire desktop each frame. Preserve the
 original bitmap result at 100% and remove wallpaper contribution at 0%.
+
+The optional minimal glow draws four faint one-pixel character offsets inside
+the existing character rectangle, followed by the original glyph. It reuses
+the same rendering surfaces and cleanup bounds, with no glyph cache or extra
+image buffers. Disabled glow uses the original TextOut path.
 
 Configuration preview is reversible. The outer dialog persists audio settings
 on acceptance; Cancel restores animation and audio previews. Animation CFGs
