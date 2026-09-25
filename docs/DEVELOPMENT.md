@@ -142,6 +142,21 @@ AudioSilenceRuntimeTests substitutes capture data to verify waiting/resume and
 the real engine without depending on ambient playback; link it with
 AudioRuntime.cpp, AudioSettings.cpp and AudioResponse.cpp, omitting AudioCapture.cpp.
 
+## Uninstall settings cleanup
+
+The active installer asks about settings only after interactive uninstall has
+been confirmed. No is the default; silent uninstall and setup keep settings.
+Cleanup runs after program removal and deletes only the four known settings
+files in the uninstalling account's profile. It leaves named presets and other
+accounts alone, refuses redirected profile directories and reports failures.
+
+Run `tests/UninstallSettingsTests.ps1 -WorkDirectory <temporary-directory>` with
+Inno Setup installed. It compiles the production uninstall code into a fixture
+with an isolated profile path and simulated user answers. It exercises actual
+install/uninstall events, preservation, cleanup, locked files and junctions
+without registering ZMatrix or touching the installed application or settings.
+Fixtures and logs stay in the selected directory for inspection.
+
 ## Documentation and historical material
 
 [USER_GUIDE.md](USER_GUIDE.md) is the current manual. The archived website,

@@ -126,10 +126,85 @@ Type: dirifempty; Name: "{app}"
 
 [Code]
 
+var
+  RemoveUserSettings: Boolean;
+  UserSettingsPath: String;
+
 function FontDoesntExist(): Boolean;
 var
   TempResult : Boolean;
 begin
   TempResult := FileExists(ExpandConstant('{fonts}') + '\Matrix Code Font.ttf');
   Result := not TempResult;
+end;
+
+function RemoveSettingsFile(const Name: String): Boolean;
+var
+  Path: String;
+begin
+  Path := AddBackslash(UserSettingsPath) + Name;
+  Result := True;
+  if FileOrDirExists(Path) then
+  begin
+    Result := DeleteFile(Path);
+    if Result then
+      Log('Removed user settings: ' + Path)
+    else
+      Log('Could not remove user settings: ' + Path);
+  end;
+end;
+
+function RemoveSettingsFiles(): Boolean;
+var
+  FindRec: TFindRec;
+begin
+  Result := False;
+  if not DirExists(UserSettingsPath) then
+  begin
+    Result := True;
+    Exit;
+  end;
+  if not FindFirst(UserSettingsPath, FindRec) then Exit;
+  try
+    // Do not follow a profile directory redirected through a link or junction.
+    if (FindRec.Attributes and FILE_ATTRIBUTE_REPARSE_POINT) <> 0 then
+    begin
+      Log('Retained redirected settings directory: ' + UserSettingsPath);
+      Exit;
+    end;
+  finally
+    FindClose(FindRec);
+  end;
+  Result := True;
+  if not RemoveSettingsFile('ZMatrix.cfg') then Result := False;
+  if not RemoveSettingsFile('ZMatrixScreenSaver.cfg') then Result := False;
+  if not RemoveSettingsFile('ZMatrixMisc.cfg') then Result := False;
+  if not RemoveSettingsFile('Audio.cfg') then Result := False;
+  // Remove only an empty directory; named presets and other files are retained.
+  RemoveDir(UserSettingsPath);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    RemoveUserSettings := False;
+    UserSettingsPath := ExpandConstant('{userappdata}\.ZMatrix');
+    if not UninstallSilent() and DirExists(UserSettingsPath) then
+      RemoveUserSettings := SuppressibleMsgBox(
+        'Also remove ZMatrix settings for Windows account "' + GetUserNameString() + '"?' + #13#10#13#10 +
+        UserSettingsPath + #13#10#13#10 +
+        'This resets animation, audio reaction and screensaver preferences.' + #13#10 +
+        'Saved presets and other Windows accounts are kept.' + #13#10#13#10 +
+        'Choose No to keep your settings for a future installation.',
+        mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES;
+  end
+  else if (CurUninstallStep = usPostUninstall) and RemoveUserSettings then
+  begin
+    if not RemoveSettingsFiles() then
+      SuppressibleMsgBox('ZMatrix was uninstalled, but some settings could not be removed:' + #13#10#13#10 +
+        UserSettingsPath + #13#10#13#10 +
+        'Close any program using these files and remove the settings manually if needed.',
+        mbError, MB_OK, IDOK);
+  end;
 end;

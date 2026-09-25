@@ -365,6 +365,16 @@ set. Ordinary characters and special strings have separate fonts.
 ## Uninstalling
 
 Exit ZMatrix and uninstall it through Windows' installed-apps list or the
-Uninstall ZMatrix shortcut. User files in `%APPDATA%\.ZMatrix` and the bundled
-Matrix Code Font are retained. Remove backed-up user settings separately only
-if you want to discard them.
+Uninstall ZMatrix shortcut. The uninstaller asks whether to also remove your
+settings from `%APPDATA%\.ZMatrix`. Choose Yes for a fresh configuration on the
+next installation, or No (the default) to keep your settings. This removes only
+ZMatrix.cfg, ZMatrixScreenSaver.cfg, ZMatrixMisc.cfg and Audio.cfg; named presets
+and other files are retained. The directory is removed only if it is empty.
+
+The prompt shows the Windows account and exact settings directory. If you run
+the uninstaller under another account, the choice applies to that account;
+other users' settings are not removed. Silent uninstall keeps settings without
+prompting. Updating or reinstalling ZMatrix also keeps settings.
+
+The bundled Matrix Code Font is retained. If settings cannot be removed, the
+uninstaller reports this instead of silently claiming a complete reset.
