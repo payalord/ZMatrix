@@ -151,7 +151,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	
 	wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
 
-	if (!RegisterClassEx(&wc))
+	if (!RegisterClassEx(&wc) || !DesktopWindows::Register(hInstance))
 	{
 		ReleaseDesktopHost(BackgroundHost);
 		DeleteObject(ValidRGN);
@@ -161,17 +161,35 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	//CoInitialize(NULL);
 	CoInitializeEx(NULL,COINIT_APARTMENTTHREADED );
 
+    // Keep timers, COM state and hooks alive independently of Explorer children.
+    CreateTopLevelListener();
+    ghWnd = CreateWindowEx(0, szWinName, _T("ZMatrix control"), WS_CHILD,
+        0, 0, gscreenWidth, gscreenHeight, TopLevelListenerWindow, NULL, hInstance, NULL);
+    if (!ghWnd)
+    {
+        DestroyTopLevelListener();
+        DeleteObject(ValidRGN);
+        CoUninitialize();
+        return 1;
+    }
+
+    BackgroundWindows.SetController(ghWnd);
 	for (;;)
 	{
 		const RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
-		ghWnd = WaitForDesktopRenderWindow(BackgroundHost, hInstance, szWinName, bounds, 60000);
-		if (ghWnd) break;
+		HWND surface = WaitForDesktopRenderWindow(BackgroundHost, hInstance, DesktopWindows::ClassName(), bounds, 60000);
+		if (surface) { BackgroundWindows.Adopt(surface, bounds); break; }
 		if (GetLastError() == ERROR_CANCELLED || MessageBox(NULL,
 			_T("ZMatrix could not connect to the Windows desktop background. No animation has been started.\n\nChoose Retry to wait another minute, or Cancel to exit."),
 			_T("ZMatrix"), MB_RETRYCANCEL | MB_ICONINFORMATION) != IDRETRY)
 		{
 			ReleaseDesktopHost(BackgroundHost);
 			DeleteObject(ValidRGN);
+			SetWindowLongPtr(ghWnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(DefWindowProc));
+			DestroyWindow(ghWnd);
+			ghWnd = NULL;
+			DestroyTopLevelListener();
+			UnregisterClass(DesktopWindows::ClassName(),hInstance);
 			UnregisterClass(szWinName,hInstance);
 			CoUninitialize();
 			return 1;
@@ -227,7 +245,6 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 
 
 
-	CreateTopLevelListener();
 	CreateRegistryListenerThread();
 
 
@@ -264,6 +281,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	};
 
 	MatrixObject = (IzsMatrix *)Qi.pItf;
+	MatrixObject->QueryInterface(IID_IZSMATRIXRENDERER, reinterpret_cast<void**>(&MatrixRenderer));
 
 	SetDesktopMonitorHook(ghWnd);
 	//MatrixObject->SethWnd(ghWnd);
@@ -279,12 +297,7 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 
 	ProcessMiscConfiguration();
 	InitializeAudio(AppConfigDirectoryPath.c_str());
-	if (EnforceDesktop())
-	{
-		ShowWindow(ghWnd,SW_SHOWNOACTIVATE);
-		UpdateWindow(ghWnd);
-	}
-	else
+	if (!EnforceDesktop())
 	{
 		KillTimer(ghWnd,REFRESH_TIMER_ID);
 		SetTimer(ghWnd,DESKTOP_RETRY_TIMER_ID,1000,NULL);
@@ -317,6 +330,37 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszArgs, 
 	return msg.wParam;
 }
 
+static bool DesktopLayoutPending = false;
+
+void RefreshDesktopLayout()
+{
+    if (!MatrixObject) return;
+    if (InScreenSaveMode) EndScreenSaveMode();
+    KillTimer(ghWnd, REFRESH_TIMER_ID);
+    BackgroundWindows.Show(false, 0);
+    BackgroundWindows.Invalidate();
+    DesktopLayoutPending = true;
+    // Coalesce display/DPI notifications and retry while the topology settles.
+    SetTimer(ghWnd, DESKTOP_RETRY_TIMER_ID, 1000, NULL);
+}
+
+static bool ApplyDesktopLayout()
+{
+    if (!DesktopLayoutPending) return true;
+    gscreenWidth = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+    gscreenHeight = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+    gscreenLeft = GetSystemMetrics(SM_XVIRTUALSCREEN);
+    gscreenTop = GetSystemMetrics(SM_YVIRTUALSCREEN);
+    if (!gscreenWidth || !gscreenHeight) return false;
+    if (!SetWindowPos(ghWnd, NULL, 0, 0, gscreenWidth, gscreenHeight, SWP_NOZORDER | SWP_NOACTIVATE)) return false;
+    HBITMAP background = UpdateBG();
+    if (!background) return false;
+    MatrixObject->UpdateTarget(ghWnd, background);
+    DeleteObject(background);
+    DesktopLayoutPending = false;
+    return true;
+}
+
 static COLORREF ExpectedBGColor = GetSysColor(COLOR_DESKTOP);
 //===========================================================================
 //===========================================================================
@@ -325,13 +369,24 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 	static UINT UWM_DESKTOPREDRAW = RegisterWindowMessage(UWM_DESKTOPREDRAW_ID);
 	static UINT UWM_DESKTOPITEMCHANGED = RegisterWindowMessage(UWM_DESKTOPITEMCHANGED_ID);
 	static UINT UWM_DESKTOPCHILDATTACHED = RegisterWindowMessage(UWM_DESKTOPCHILDATTACHED_ID);
+	static const UINT TaskbarCreated = RegisterWindowMessage(_T("TaskbarCreated"));
 	static POINT pt;
 	static int mouseCounter = 0;
 	static int mouseDelay = 2;			// how many pixels moved by the mouse to wait before killing screensaver
 	static bool ScheduledRegionUpdate = false;
 
+    if (!MatrixObject && (message == WM_DESKTOPWALLPAPERCHANGED || message == WM_SYSCOLORCHANGE ||
+        message == WM_OTHERDESKTOPSETTINGCHANGED)) return 0;
 	switch(message)
 	{
+    case DesktopWindows::ChangedMessage:
+        if (wParam == WM_DPICHANGED) RefreshDesktopLayout();
+        else if (MatrixObject)
+        {
+            BackgroundWindows.Invalidate();
+            SetTimer(ghWnd, DESKTOP_RETRY_TIMER_ID, 1000, NULL);
+        }
+        break;
 	//case(WM_SYSCOMMAND):
 	case(WM_LBUTTONDOWN):
 	case(WM_RBUTTONDOWN):
@@ -391,15 +446,15 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 			{
 			case(DESKTOP_RETRY_TIMER_ID):
 				{
-					if (!MatrixObject || !EnforceDesktop()) break;
+					if (!MatrixObject || !ApplyDesktopLayout() || !EnforceDesktop()) break;
 					KillTimer(hWnd,DESKTOP_RETRY_TIMER_ID);
-					ShowWindow(hWnd,SW_SHOWNOACTIVATE);
+
 					if (!Paused) SetTimer(hWnd,REFRESH_TIMER_ID,RefreshTime,NULL);
 				}
 				break;
 			case(REFRESH_TIMER_ID):
 				{
-					if (!MatrixObject) break;
+					if (!MatrixObject || DesktopLayoutPending) break;
 					if(ScheduledRegionUpdate)
 					{
 						UpdateRegions();
@@ -408,7 +463,7 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 
 					if (!EnforceDesktop())
 					{
-						ShowWindow(hWnd,SW_HIDE);
+						BackgroundWindows.Show(false, 0);
 						KillTimer(hWnd,REFRESH_TIMER_ID);
 						SetTimer(hWnd,DESKTOP_RETRY_TIMER_ID,1000,NULL);
 						break;
@@ -425,25 +480,12 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 					}
 					else
 					{
-						POINT TestPoint = {0,0};
-						ClientToScreen(ghWnd,&TestPoint);
-
-						HDC hdc = GetDC(hWnd);
-						SelectClipRgn(hdc,ValidRGN);
-
-						XFORM xForm;
-						xForm.eM11 = 1.0f;
-						xForm.eM12 = 0.0f;
-						xForm.eM21 = 0.0f;
-						xForm.eM22 = 1.0f;
-						xForm.eDx  = 0.0f;
-						xForm.eDy  = 0.0f;
-						SetWorldTransform(hdc, &xForm);
-						OffsetViewportOrgEx(hdc,gscreenLeft-TestPoint.x,gscreenTop-TestPoint.y,NULL);
-
-						MatrixObject->Render(hdc);
-
-						ReleaseDC(hWnd,hdc);
+						if (!BackgroundWindows.Render(*MatrixObject, MatrixRenderer))
+						{
+							BackgroundWindows.Show(false, 0);
+							KillTimer(hWnd, REFRESH_TIMER_ID);
+							SetTimer(hWnd, DESKTOP_RETRY_TIMER_ID, 1000, NULL);
+						}
 					}
 
 				}
@@ -816,18 +858,9 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 			}
 		}
 		break;
-	case (WM_DPICHANGED):
-		{
-		RECT* const rect = (RECT*)lParam;
-		// auto rect = *reinterpret_cast<RECT *>(lParam);
-		SetWindowPos(hWnd,
-			0, // or NULL
-			rect->left,
-			rect->top,
-			rect->right - rect->left,
-			rect->bottom - rect->top,
-			SWP_NOSIZE | SWP_NOMOVE);
-		}
+	case WM_DISPLAYCHANGE:
+	case WM_DPICHANGED:
+		RefreshDesktopLayout();
 		break;
 	case(WM_SYSCOLORCHANGE):
 		{
@@ -918,7 +951,13 @@ LRESULT CALLBACK WindowProc(HWND hWnd,UINT message,WPARAM wParam,LPARAM lParam)
 	WM_COEFF_SETTER(B1);
 	default:
 		{
-			if(message == UWM_DESKTOPREDRAW)
+			if (message == TaskbarCreated)
+			{
+				if (IconData.hWnd) Shell_NotifyIcon(NIM_ADD, &IconData);
+				BackgroundWindows.Invalidate();
+				SetTimer(ghWnd, DESKTOP_RETRY_TIMER_ID, 1000, NULL);
+			}
+			else if(message == UWM_DESKTOPREDRAW)
 			{
 				return DefWindowProc(hWnd,message,wParam,lParam);
 			}

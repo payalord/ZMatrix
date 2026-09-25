@@ -2,6 +2,7 @@
 // Default: isolated, test-owned Explorer layouts. --explorer-smoke: briefly create
 // a hidden child on the real desktop; no wallpaper, icon or configuration changes.
 #include "../DesktopHost.h"
+#include "../DesktopWindows.h"
 #include <commctrl.h>
 #include <tchar.h>
 #include <cstdio>
@@ -114,6 +115,46 @@ static void ModernLayout()
     std::puts("PASS: modern layered desktop, negative origin, wallpaper replacement and resize.");
 }
 
+static void MultipleWindows()
+{
+    Windows fixture;
+    HWND root=fixture.Add(_T("ZMatrixTestProgman"),NULL,WS_EX_NOREDIRECTIONBITMAP);
+    HWND icons=fixture.Add(_T("SHELLDLL_DefView"),root,WS_EX_LAYERED,0,0);
+    fixture.Add(WC_LISTVIEW,icons,0,0,0);
+    SetLayeredWindowAttributes(icons,0,255,LWA_ALPHA);
+    DesktopHost host={};Check(FindDesktopHost(root,host),"Multi-window host missing.");
+    Check(DesktopWindows::Register(GetModuleHandle(NULL)),"Surface class failed.");
+    DesktopWindows surfaces;
+    const RECT canvas={-320,-160,640,480};
+    const std::vector<RECT> monitors={{-320,-160,0,160},{0,-80,640,480}};
+    const DWORD objects=GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS);
+    const DWORD userObjects=GetGuiResources(GetCurrentProcess(),GR_USEROBJECTS);
+    for(int iteration=0;iteration<30;++iteration)
+    {
+        Check(surfaces.Rebuild(host,GetModuleHandle(NULL),canvas,monitors),"Monitor windows failed to build.");
+        Check(surfaces.Count()==2 && surfaces.Ready(host),"Monitor group validation failed.");
+        for(size_t i=0;i<surfaces.Count();++i)
+        {
+            RECT actual={};GetWindowRect(surfaces.Window(i),&actual);
+            Check(EqualRect(&actual,&monitors[i])!=FALSE,"Monitor window bounds changed.");
+            Check(!(GetWindowLongPtr(surfaces.Window(i),GWL_STYLE)&WS_VISIBLE),"Rebuilt windows were shown before validation.");
+        }
+        SetWindowPos(surfaces.Window(1),HWND_TOP,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+        Check(!surfaces.Ready(host),"A monitor window above icons was accepted.");
+        Check(surfaces.Ensure(host,GetModuleHandle(NULL),canvas,true) && surfaces.Ready(host),"Monitor group order was not repaired.");
+        surfaces.Reset();
+        Check(GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS)==objects,"Repeated monitor-window rebuilding leaked GDI objects.");
+        Check(GetGuiResources(GetCurrentProcess(),GR_USEROBJECTS)==userObjects,"Repeated rebuilding leaked window handles.");
+    }
+    Check(surfaces.Rebuild(host,GetModuleHandle(NULL),canvas,{canvas}) && surfaces.Count()==1,"Single-monitor transition failed.");
+    Check(surfaces.Rebuild(host,GetModuleHandle(NULL),canvas,monitors),"Two-monitor transition failed.");
+    DestroyWindow(root);
+    Check(!surfaces.Ready(host),"Destroyed Explorer host was accepted.");
+    surfaces.Reset();
+    Check(!surfaces.Rebuild(host,GetModuleHandle(NULL),canvas,monitors),"Stale host created surfaces.");
+    std::puts("PASS: monitor group geometry/order, one/two monitor transitions, lost host and repeated resource cleanup.");
+}
+
 static void ClassicLayout()
 {
     Windows windows;
@@ -136,9 +177,12 @@ static void ClassicLayout()
     const RECT bounds = {-320, -160, 640, 480};
     CheckRenderWindow(host, windows, bounds);
     HWND render = windows.handles.back();
-    SetWindowPos(background, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    // Move the hidden fixture icon host behind the background explicitly.
+    // HWND_TOP can be constrained by foreground activation rules.
+    SetWindowPos(iconHost, background, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     Check(!IsDesktopRenderWindowReady(host, render), "Classic background above icons was accepted.");
-    SetWindowPos(background, unrelated, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    SetWindowPos(iconHost, unrelated, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    SetWindowPos(background, iconHost, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     Check(IsDesktopRenderWindowReady(host, render), "Restored classic background was rejected.");
     ShowWindow(background, SW_HIDE);
     Check(!IsDesktopRenderWindowReady(host, render), "Unavailable classic background was accepted.");
@@ -232,7 +276,7 @@ int _tmain(int argc, TCHAR** argv)
             INITCOMMONCONTROLSEX controls = {sizeof(controls), ICC_LISTVIEW_CLASSES};
             InitCommonControlsEx(&controls);
             Register(_T("ZMatrixTestProgman")); Register(_T("SHELLDLL_DefView")); Register(_T("WorkerW"));
-            ModernLayout(); ClassicLayout(); DelayedStartup();
+            ModernLayout(); MultipleWindows(); ClassicLayout(); DelayedStartup();
         }
         return 0;
     }

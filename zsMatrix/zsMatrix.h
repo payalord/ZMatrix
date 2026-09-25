@@ -40,6 +40,7 @@
 #include "IzsMatrix.h"
 #include "IzsMatrixAppearance.h"
 #include "IzsMatrixMotion.h"
+#include "IzsMatrixRenderer.h"
 #include <string>
 
 using namespace std;
@@ -172,7 +173,7 @@ protected:
 EXPIMP_TEMPLATE template class std::vector<_TCHAR>;
 EXPIMP_TEMPLATE template class std::vector<IzsMatrixStream *>;
 
-class zsMatrix : public IzsMatrix, public IzsMatrixAppearance, public IzsMatrixGlow, public IzsMatrixMotion
+class zsMatrix : public IzsMatrix, public IzsMatrixAppearance, public IzsMatrixGlow, public IzsMatrixMotion, public IzsMatrixRenderer
 {
 public:
 
@@ -192,6 +193,7 @@ public:
 	}
 
 	int __stdcall Render(HDC hdc);
+	int __stdcall RenderTargets(const MatrixRenderTarget* targets, unsigned count);
 	void __stdcall SetBlendStrength(unsigned percent) { BlendStrength = percent > 100 ? 100 : percent; if (!BlendStrength) ReleaseBlendSurface(); }
 	unsigned __stdcall GetBlendStrength() const { return BlendStrength; }
 	void __stdcall SetGlowEnabled(BOOL enabled) { GlowEnabled = enabled != FALSE; }
@@ -379,6 +381,10 @@ public:
 		{
 			*ppObject=static_cast<IzsMatrixMotion*>(this);
 		}
+		else if (riid==IID_IZSMATRIXRENDERER)
+		{
+			*ppObject=static_cast<IzsMatrixRenderer*>(this);
+		}
 		else
 		{
 			return E_NOINTERFACE;
@@ -535,6 +541,12 @@ private:
 	void PresentBitmapCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds);
 	void DrawArithmeticCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds);
 	void DrawBitmapCleanup(HDC target, const RECT &area, const RECT &bitmapBounds);
+	void CopyOutput(HDC target, const RECT &area, HDC source, int sourceX, int sourceY);
+	void ClearOutput(HDC target, const RECT &area);
+	void DrawOutputCharacter(HDC target, const zsCharDetails &character);
+	const MatrixRenderTarget* ActiveTargets = NULL;
+	unsigned ActiveTargetCount = 0;
+	RECT OutputBounds = {};
 
 	void CalcRectForNthBackChar(const IzsMatrixStream *Stream,unsigned int N,RECT &Rect) const;
 

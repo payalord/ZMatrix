@@ -22,7 +22,8 @@ HWND CreateDesktopRenderWindow(const DesktopHost& host, HINSTANCE instance,
 // Returns a hidden, verified child, or NULL; GetLastError reports the failure.
 HWND WaitForDesktopRenderWindow(DesktopHost& host, HINSTANCE instance,
     LPCTSTR className, const RECT& screenBounds, DWORD timeoutMs, HWND progman = NULL);
-bool IsDesktopRenderWindowReady(const DesktopHost& host, HWND window);
+bool IsDesktopHostReady(const DesktopHost& host);
+bool IsDesktopRenderWindowReady(const DesktopHost& host, HWND window, HWND previous = NULL);
 bool PositionDesktopRenderWindow(const DesktopHost& host, HWND window,
-    const RECT& screenBounds);
+    const RECT& screenBounds, HWND previous = NULL);
 void ReleaseDesktopHost(DesktopHost& host);

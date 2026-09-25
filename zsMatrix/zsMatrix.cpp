@@ -65,20 +65,14 @@ if(this->RandomizedCleanupEnabled)\
 	static RECT ClearRect;\
 	int randomval = (rand()*this->SpacePad/RAND_MAX+this->Leading);\
 	this->CalcRectForNthBackChar(this->Streams[i],randomval,ClearRect);\
-	Rectangle(hdc,ClearRect.left,\
-			  ClearRect.top,\
-			  ClearRect.right,\
-			  ClearRect.bottom);\
+	ClearOutput(hdc, ClearRect);\
 }\
 \
 if(this->MonotonousCleanupEnabled)\
 {\
 	static RECT ClearRect;\
 	this->CalcRectForNthBackChar(this->Streams[i],this->BackTrace,ClearRect);\
-	Rectangle(hdc,ClearRect.left,\
-			  ClearRect.top,\
-			  ClearRect.right,\
-			  ClearRect.bottom);\
+	ClearOutput(hdc, ClearRect);\
 }
 
 #define SpecialBitBltCleanup() \
@@ -1038,6 +1032,87 @@ int zsMatrix::Render(HDC hdc)
 	return true;
 }
 
+int zsMatrix::RenderTargets(const MatrixRenderTarget* targets, unsigned count)
+{
+    if (!targets || !count || ActiveTargetCount) return false;
+    for (unsigned i = 0; i < count; ++i)
+    {
+        if (!targets[i].dc || IsRectEmpty(&targets[i].bounds)) return false;
+        for (unsigned j = 0; j < i; ++j)
+            if (targets[i].dc == targets[j].dc) return false;
+    }
+    unsigned saved = 0;
+    RECT bounds = {};
+    for (; saved < count; ++saved)
+    {
+        if (!SaveDC(targets[saved].dc)) break;
+        const RECT& area = targets[saved].bounds;
+        if (IntersectClipRect(targets[saved].dc, area.left, area.top, area.right, area.bottom) == ERROR)
+        {
+            RestoreDC(targets[saved].dc, -1);
+            break;
+        }
+        RECT visible = {};
+        if (GetClipBox(targets[saved].dc, &visible) == ERROR)
+        {
+            RestoreDC(targets[saved].dc, -1);
+            break;
+        }
+        UnionRect(&bounds, &bounds, &visible);
+        SetTextAlign(targets[saved].dc, TA_TOP | TA_CENTER);
+        SelectObject(targets[saved].dc, hBGBrush);
+        SelectObject(targets[saved].dc, hBGPen);
+        SetBkColor(targets[saved].dc, BGColorRef);
+        SetBkMode(targets[saved].dc, BGColor[3] < 128 ? TRANSPARENT : OPAQUE);
+    }
+    int result = false;
+    if (saved == count)
+    {
+        ActiveTargets = targets;
+        ActiveTargetCount = count;
+        OutputBounds = bounds;
+        result = Render(targets[0].dc);
+        ActiveTargets = NULL;
+        ActiveTargetCount = 0;
+    }
+    while (saved) RestoreDC(targets[--saved].dc, -1);
+    return result;
+}
+
+void zsMatrix::CopyOutput(HDC target, const RECT& area, HDC source, int sourceX, int sourceY)
+{
+    if (!ActiveTargetCount)
+    {
+        BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), source, sourceX, sourceY, SRCCOPY);
+        return;
+    }
+    for (unsigned i = 0; i < ActiveTargetCount; ++i)
+    {
+        RECT visible;
+        if (IntersectRect(&visible, &area, &ActiveTargets[i].bounds))
+            BitBlt(ActiveTargets[i].dc, visible.left, visible.top, WIDTH(visible), HEIGHT(visible),
+                source, sourceX + visible.left - area.left, sourceY + visible.top - area.top, SRCCOPY);
+    }
+}
+
+void zsMatrix::ClearOutput(HDC target, const RECT& area)
+{
+    for (unsigned i = 0; i < (ActiveTargetCount ? ActiveTargetCount : 1); ++i)
+        Rectangle(ActiveTargetCount ? ActiveTargets[i].dc : target, area.left, area.top, area.right, area.bottom);
+}
+
+void zsMatrix::DrawOutputCharacter(HDC target, const zsCharDetails& character)
+{
+    // Let GDI clip the complete glyph, including italic overhang and glow.
+    for (unsigned i = 0; i < (ActiveTargetCount ? ActiveTargetCount : 1); ++i)
+    {
+        HDC dc = ActiveTargetCount ? ActiveTargets[i].dc : target;
+        SelectObject(dc, character.Font);
+        SetTextColor(dc, character.Color);
+        DrawCharacter(dc, character);
+    }
+}
+
 void zsMatrix::SetAudioMotion(double speed, double spawn)
 {
 	AudioSpeed = _finite(speed) && speed >= 1 && speed <= 2 ? speed : 1;
@@ -1079,7 +1154,7 @@ void zsMatrix::PresentBitmapCharacter(HDC target, const zsCharDetails &character
 	const RECT &area = character.Rect;
 	if (BlendStrength == 100)
 	{
-		BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), hBackDC, area.left, area.top, SRCCOPY);
+		CopyOutput(target, area, hBackDC, area.left, area.top);
 		return;
 	}
 
@@ -1098,14 +1173,14 @@ void zsMatrix::PresentBitmapCharacter(HDC target, const zsCharDetails &character
 		AlphaBlend(hTempSpaceDC, clipped.left, clipped.top, WIDTH(clipped), HEIGHT(clipped),
 			hBackDC, clipped.left, clipped.top, WIDTH(clipped), HEIGHT(clipped), blend);
 	}
-	BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), hTempSpaceDC, area.left, area.top, SRCCOPY);
+	CopyOutput(target, area, hTempSpaceDC, area.left, area.top);
 }
 
 void zsMatrix::DrawBitmapCleanup(HDC target, const RECT &area, const RECT &bitmapBounds)
 {
 	if (BlendStrength == 100)
 	{
-		BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), hBGDC, area.left, area.top, SRCCOPY);
+		CopyOutput(target, area, hBGDC, area.left, area.top);
 		return;
 	}
 	// Opaque text cleanup reveals the same proportion of wallpaper as the characters.
@@ -1117,7 +1192,7 @@ void zsMatrix::DrawBitmapCleanup(HDC target, const RECT &area, const RECT &bitma
 		AlphaBlend(hTempSpaceDC, clipped.left, clipped.top, WIDTH(clipped), HEIGHT(clipped),
 			hBGDC, clipped.left, clipped.top, WIDTH(clipped), HEIGHT(clipped), blend);
 	}
-	BitBlt(target, area.left, area.top, WIDTH(area), HEIGHT(area), hTempSpaceDC, area.left, area.top, SRCCOPY);
+	CopyOutput(target, area, hTempSpaceDC, area.left, area.top);
 }
 
 static const int BlendTileSize = 64;
@@ -1169,15 +1244,21 @@ static unsigned MixChannel(TBlendMode mode, unsigned color, unsigned wallpaper, 
 void zsMatrix::DrawArithmeticCharacter(HDC target, const zsCharDetails &character, const RECT &bitmapBounds)
 {
 	RECT targetBounds, visible;
-	if (GetClipBox(target, &targetBounds) == ERROR || !IntersectRect(&visible, &character.Rect, &targetBounds)) return;
+	if (ActiveTargetCount) targetBounds = OutputBounds;
+	else if (GetClipBox(target, &targetBounds) == ERROR) return;
+	if (!IntersectRect(&visible, &character.Rect, &targetBounds)) return;
 	if (!EnsureBlendSurface())
 	{
 		// A small allocation failure must not expose stale scratch pixels.
-		FillRect(target, &character.Rect, hBGBrush);
-		SelectObject(target, character.Font);
-		SetTextColor(target, character.Color);
-		SetBkMode(target, TRANSPARENT);
-		DrawCharacter(target, character);
+		for (unsigned i = 0; i < (ActiveTargetCount ? ActiveTargetCount : 1); ++i)
+		{
+			HDC dc = ActiveTargetCount ? ActiveTargets[i].dc : target;
+			FillRect(dc, &character.Rect, hBGBrush);
+			SelectObject(dc, character.Font);
+			SetTextColor(dc, character.Color);
+			SetBkMode(dc, TRANSPARENT);
+			DrawCharacter(dc, character);
+		}
 		return;
 	}
 	const HGDIOBJ previousFont = SelectObject(hBlendDC, character.Font);
@@ -1248,7 +1329,7 @@ void zsMatrix::DrawArithmeticCharacter(HDC target, const zsCharDetails &characte
 			}
 			pixel[2 * BlendTileSize] = result;
 		}
-		BitBlt(target, left, top, WIDTH(tile), HEIGHT(tile), hBlendDC, 2 * BlendTileSize, 0, SRCCOPY);
+		CopyOutput(target, tile, hBlendDC, 2 * BlendTileSize, 0);
 	}
 	SelectObject(hBlendDC, previousFont);
 }
@@ -2625,15 +2706,11 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 
 					//First Operation -- Output a random character in brighter color
-					SelectObject(hdc,BrightCharDetails.Font);
-					SetTextColor(hdc,BrightCharDetails.Color);
-					DrawCharacter(hdc, BrightCharDetails);
+					DrawOutputCharacter(hdc, BrightCharDetails);
 
 
 					//Second Operation -- Output another random character in a dimmer color
-					SelectObject(hdc,DimCharDetails.Font);
-					SetTextColor(hdc,DimCharDetails.Color);
-					DrawCharacter(hdc, DimCharDetails);
+					DrawOutputCharacter(hdc, DimCharDetails);
 
 
 
@@ -2661,25 +2738,15 @@ void zsMatrix::DisplayStreams(HDC hdc)
 
 					//First Operation -- Output a random character in brighter color
 
-					Rectangle(hdc,BrightCharDetails.Rect.left,
-							  BrightCharDetails.Rect.top,
-							  BrightCharDetails.Rect.right,
-							  BrightCharDetails.Rect.bottom);
-					SelectObject(hdc,BrightCharDetails.Font);
-					SetTextColor(hdc,BrightCharDetails.Color);
-					DrawCharacter(hdc, BrightCharDetails);
+					ClearOutput(hdc, BrightCharDetails.Rect);
+					DrawOutputCharacter(hdc, BrightCharDetails);
 
 
 					//Second Operation -- Output another random character in a dimmer color
 
 
-					Rectangle(hdc,DimCharDetails.Rect.left,
-							  DimCharDetails.Rect.top,
-							  DimCharDetails.Rect.right,
-							  DimCharDetails.Rect.bottom);
-					SelectObject(hdc,DimCharDetails.Font);
-					SetTextColor(hdc,DimCharDetails.Color);
-					DrawCharacter(hdc, DimCharDetails);
+					ClearOutput(hdc, DimCharDetails.Rect);
+					DrawOutputCharacter(hdc, DimCharDetails);
 
 
 

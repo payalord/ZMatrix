@@ -40,7 +40,10 @@ _TCHAR ListenerClassName[] = {_TEXT("ZMatrixListenerClass")};
 //===========================================================================
 LRESULT CALLBACK	TopLevelListenerWindowProc(HWND hWnd,UINT msg,WPARAM wParam,LPARAM lParam)
 {
-	SendMessage(ghWnd,msg,wParam,lParam);
+	// The hidden controller is our child; do not forward parent destruction
+	// back into the application's shutdown while its children are being removed.
+	if (ghWnd && msg != WM_DESTROY && msg != WM_NCDESTROY)
+		SendMessage(ghWnd,msg,wParam,lParam);
 	return DefWindowProc(hWnd,msg,wParam,lParam);
 }
 //===========================================================================

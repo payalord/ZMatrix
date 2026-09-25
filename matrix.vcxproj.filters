@@ -15,6 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DesktopWindows.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="DesktopHost.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -35,6 +36,8 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DesktopWindows.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="zsMatrix\IzsMatrixRenderer.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="DesktopHost.h">
       <Filter>Header Files</Filter>
     </ClInclude>

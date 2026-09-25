@@ -198,6 +198,7 @@
     <ClCompile Include="Audio\AudioCapture.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
     <ClCompile Include="AudioRuntime.cpp"><LanguageStandard>stdcpp17</LanguageStandard><PreprocessorDefinitions>NOMINMAX;WINVER=0x0601;_WIN32_WINNT=0x0601;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
     <ClCompile Include="DesktopHost.cpp" />
+    <ClCompile Include="DesktopWindows.cpp" />
     <ClCompile Include="globals.cpp" />
     <ClCompile Include="matrix.cpp" />
     <ClCompile Include="mmgr.cpp">
@@ -209,6 +210,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DesktopHost.h" />
+    <ClInclude Include="DesktopWindows.h" />
+    <ClInclude Include="zsMatrix\IzsMatrixRenderer.h" />
     <ClInclude Include="globals.h" />
     <ClInclude Include="mmgr.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

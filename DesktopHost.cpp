@@ -158,7 +158,12 @@ bool InitializeDesktopHost(DesktopHost& host, HWND progman)
     return true;
 }
 
-bool PositionDesktopRenderWindow(const DesktopHost& host, HWND window, const RECT& screenBounds)
+bool IsDesktopHostReady(const DesktopHost& host)
+{
+    return IsHostCurrent(host);
+}
+
+bool PositionDesktopRenderWindow(const DesktopHost& host, HWND window, const RECT& screenBounds, HWND previous)
 {
     if (!IsHostCurrent(host) || !IsWindow(window) || GetParent(window) != host.parent ||
         !(GetWindowLongPtr(window, GWL_STYLE) & WS_CHILD))
@@ -166,7 +171,7 @@ bool PositionDesktopRenderWindow(const DesktopHost& host, HWND window, const REC
     POINT origin = { screenBounds.left, screenBounds.top };
     if (!ScreenToClient(host.parent, &origin))
         return false;
-    return SetWindowPos(window, host.insertAfter, origin.x, origin.y,
+    return SetWindowPos(window, previous ? previous : host.insertAfter, origin.x, origin.y,
         screenBounds.right - screenBounds.left, screenBounds.bottom - screenBounds.top,
         SWP_NOACTIVATE) != FALSE;
 }
@@ -195,7 +200,7 @@ HWND CreateDesktopRenderWindow(const DesktopHost& host, HINSTANCE instance,
     return window;
 }
 
-bool IsDesktopRenderWindowReady(const DesktopHost& host, HWND window)
+bool IsDesktopRenderWindowReady(const DesktopHost& host, HWND window, HWND previous)
 {
     const DWORD requiredStyle = WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
     if (!IsHostCurrent(host) || !IsWindow(window) || GetParent(window) != host.parent ||
@@ -205,7 +210,7 @@ bool IsDesktopRenderWindowReady(const DesktopHost& host, HWND window)
     {
         BYTE alpha = 0;
         DWORD flags = 0;
-        return GetWindow(window, GW_HWNDPREV) == host.iconView &&
+        return GetWindow(window, GW_HWNDPREV) == (previous ? previous : host.iconView) &&
             GetLayeredWindowAttributes(window, NULL, &alpha, &flags) &&
             alpha == 255 && (flags & LWA_ALPHA) && !(flags & LWA_COLORKEY);
     }

@@ -36,6 +36,7 @@
 
 extern _TCHAR ListenerClassName[];
 
+extern HWND TopLevelListenerWindow;
 void CreateTopLevelListener(void);
 void DestroyTopLevelListener(void);
 

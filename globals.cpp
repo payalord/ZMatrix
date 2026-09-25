@@ -57,6 +57,8 @@ HINSTANCE ghInstance;
 HWND ghWnd = NULL;
 HWND ghProgman = NULL;
 DesktopHost BackgroundHost = {};
+DesktopWindows BackgroundWindows;
+IzsMatrixRenderer* MatrixRenderer = NULL;
 HWND ghShellDLL = NULL;
 HWND ghSysListView = NULL;
 
@@ -594,12 +596,18 @@ bool EnforceDesktop(void)
 	// the system wallpaper here would unnecessarily rebuild that desktop layer.
 	if(!InScreenSaveMode)
 	{
-		if (!IsDesktopRenderWindowReady(BackgroundHost, ghWnd))
-		{
-			const RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
-			if (!PositionDesktopRenderWindow(BackgroundHost, ghWnd, bounds) ||
-				!IsDesktopRenderWindowReady(BackgroundHost, ghWnd)) return false;
-		}
+        const RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
+        if (!BackgroundWindows.Ensure(BackgroundHost, ghInstance, bounds, MatrixRenderer != NULL))
+        {
+            BackgroundWindows.Show(false, 0);
+            return false;
+        }
+        ghProgman = BackgroundHost.progman;
+        ghShellDLL = BackgroundHost.iconView;
+        ghSysListView = BackgroundHost.listView;
+        BYTE r, g, b, a;
+        MatrixObject->GetBGColor(r, g, b, a);
+        BackgroundWindows.Show(true, RGB(r, g, b));
 		if(DesktopIsCleared) RestoreOrigDesktop();
 		return true;
 	}
@@ -697,8 +705,6 @@ void UpdateRegions(void)
 	{
 		// Icon clipping is handled by Explorer's window hierarchy and compositor.
 		SetRectRgn(ValidRGN,0,0,gscreenWidth,gscreenHeight);
-		RECT bounds = {gscreenLeft,gscreenTop,gscreenLeft+(LONG)gscreenWidth,gscreenTop+(LONG)gscreenHeight};
-		PositionDesktopRenderWindow(BackgroundHost,ghWnd,bounds);
 		return;
 	}
 	if(ghSysListView != NULL)
@@ -1697,7 +1703,7 @@ void BeforeClose(void)
 
 
 		StopRegistryListenerThread();
-		DestroyTopLevelListener();
+
 
 		if(!BackgroundHost.parent || WallpaperIsCleared || DesktopColorIsCleared)
 			RestoreOrigDesktop();
@@ -1712,6 +1718,9 @@ void BeforeClose(void)
 
 		Shell_NotifyIcon(NIM_DELETE,&IconData);
 
+		BackgroundWindows.Reset();
+		if(MatrixRenderer) MatrixRenderer->Release();
+		MatrixRenderer = NULL;
 		if(MatrixObject) MatrixObject->Release();
 		MatrixObject = NULL;
 
@@ -1723,7 +1732,10 @@ void BeforeClose(void)
 
 		if(!DestroyWindow(ghWnd))
 			MB("Failed to delete ZMatrix rendering window");
+		ghWnd = NULL;
+		DestroyTopLevelListener();
 		ReleaseDesktopHost(BackgroundHost);
+		UnregisterClass(DesktopWindows::ClassName(),ghInstance);
 
 		if(!UnregisterClass(szWinName,ghInstance))
 			MB("Failed to unregister ZMatrix rendering class");

@@ -2,6 +2,7 @@
 // Run from the repository root. Optional argument: the engine DLL before this change.
 #include "../zsMatrix/IzsMatrixAppearance.h"
 #include "../zsMatrix/IzsMatrixMotion.h"
+#include "../zsMatrix/IzsMatrixRenderer.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -207,6 +208,81 @@ static void CheckArithmeticColors(HWND window) {
         Check(GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS)+2==objects,"Returning to a legacy mode retained the blend workspace.");
     }
 }
+static void CheckMultipleTargets() {
+    const int width=320,height=224,pad=4;
+    HWND window=CreateWindowExW(0,L"STATIC",L"Multi-target test",WS_POPUP,0,0,width,height,nullptr,nullptr,nullptr,nullptr);
+    Check(window!=nullptr,"Multi-target fixture window failed.");
+    Surface background(width,height),full(width+2*pad,height+2*pad),left(160+2*pad,128+2*pad),right(160+2*pad,192+2*pad);
+    background.Fill(0x416b97);
+    unsigned cases=0;
+    for(int mode=-1;mode<6;++mode) for(unsigned strength:{0u,55u,100u})
+    for(bool opaque:{false,true}) for(bool glow:{false,true}) {
+        Engine single(L".\\zsMatrix.dll"),split(L".\\zsMatrix.dll");
+        IzsMatrixRenderer* renderer=nullptr;
+        Check(SUCCEEDED(split.matrix->QueryInterface(IID_IZSMATRIXRENDERER,reinterpret_cast<void**>(&renderer))),"Multi-target interface missing.");
+        for(IzsMatrix* matrix:{single.matrix,split.matrix}) {
+            SelectObject(background.dc,background.previous);matrix->UpdateTarget(window,background.bitmap);SelectObject(background.dc,background.bitmap);
+            matrix->SetMaxStream(0);matrix->SetMaxStream(12);matrix->SetSpeedVariance(0);
+            matrix->SetBGMode(mode<0?bgmodeColor:bgmodeBitmap);matrix->SetBlendMode(mode<0?blendmodeAND:mode);
+            matrix->SetBGColor(13,19,31,opaque?255:0);matrix->SetValidCharSet(L"M",1);
+            matrix->SetSpecialStringStreamProbability(0);matrix->ClearValidSpecialStringSet();matrix->AddSpecialStringToValidSet(L"MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM");
+            LOGFONTW font={};font.lfHeight=-17;font.lfItalic=TRUE;font.lfQuality=ANTIALIASED_QUALITY;wcscpy_s(font.lfFaceName,L"Arial");
+            matrix->SetLogFont(font);font.lfHeight=-23;matrix->SetSpecialStringLogFont(font);
+            matrix->SetBackTrace(3);matrix->SetLeading(4);matrix->SetSpacePad(0);
+            ApplyBlendStrength(*matrix,strength);ApplyGlowEnabled(*matrix,glow);ApplyAudioMotion(*matrix,1.5,0);
+        }
+        full.Fill(0x172839);left.Fill(0x172839);right.Fill(0x172839);
+        const int fullState=SaveDC(full.dc),leftState=SaveDC(left.dc),rightState=SaveDC(right.dc);
+        SetViewportOrgEx(full.dc,pad,pad,nullptr);SetViewportOrgEx(left.dc,pad,pad,nullptr);SetViewportOrgEx(right.dc,pad-160,pad-32,nullptr);
+        IntersectClipRect(full.dc,0,0,width,height);
+        for(HDC dc:{full.dc,left.dc,right.dc}) {
+            ExcludeClipRect(dc,170,60,182,81);
+            SetTextColor(dc,RGB(43,17,211));SetBkMode(dc,OPAQUE);
+        }
+        const MatrixRenderTarget targets[]={{left.dc,{0,0,160,128}},{right.dc,{160,32,320,224}}};
+        DWORD objects=0;
+        for(int frame=0;frame<16;++frame) {
+            for(IzsMatrix* matrix:{single.matrix,split.matrix}) {
+                matrix->SetMonotonousCleanupEnabled((frame/4)&1);matrix->SetRandomizedCleanupEnabled((frame/4)&2);
+                for(unsigned i=0;i<12;++i) {
+                    auto stream=matrix->GetStreams()[i];stream->SetStatus(true);
+                    stream->SetStartX(i<6?155+int(i):int(i)*27-12);stream->SetStartY(30+(i*13+frame*7)%145);
+                    stream->SetTickCounter(0);stream->SetTicksToWait(i%3);stream->SetNeedsDrawing(true);
+                    stream->SetSpecialStreamFlag((i&1)!=0);stream->SetSpecialStreamStringIndex(0);
+                    stream->SetSpecialStreamStringCharIndex((i&1)?unsigned(frame):stream->GetSpecialStreamStringInvalidCharIndex());
+                }
+            }
+            single.matrix->Render(full.dc);Check(renderer->RenderTargets(targets,2)!=0,"Multi-target render failed.");
+            Check(GetTextColor(left.dc)==RGB(43,17,211) && GetTextColor(right.dc)==RGB(43,17,211) && GetBkMode(right.dc)==OPAQUE,"Multi-target render changed caller DC state.");
+            const auto f=full.Read(),l=left.Read(),r=right.Read();
+            for(int y=0;y<height;++y) for(int x=0;x<width;++x) {
+                if(x<160 && y>=128)continue;if(x>=160 && y<32)continue;
+                const DWORD expected=f[(y+pad)*full.width+x+pad];
+                const DWORD actual=x<160?l[(y+pad)*left.width+x+pad]:r[(y-32+pad)*right.width+x-160+pad];
+                if(expected!=actual){fprintf(stderr,"Multi-target mismatch mode=%d strength=%u opaque=%d glow=%d frame=%d at %d,%d: %06lx/%06lx\n",mode,strength,opaque,glow,frame,x,y,expected,actual);Check(false,"Multi-target pixels differ.");}
+            }
+            Check(l.front()==0x172839 && l.back()==0x172839 && r.front()==0x172839 && r.back()==0x172839,"Drawing escaped target bounds.");
+            for(unsigned i=0;i<12;++i) {
+                const auto a=single.matrix->GetStreams()[i],b=split.matrix->GetStreams()[i];
+                Check(a->GetStartY()==b->GetStartY() && a->GetTickCounter()==b->GetTickCounter() && a->GetSpecialStreamStringCharIndex()==b->GetSpecialStreamStringCharIndex(),"Target count changed animation timing.");
+            }
+            if(!frame)objects=GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS);
+            else Check(objects==GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS),"Multi-target frames leaked GDI objects.");
+        }
+        const auto beforeLeft=left.Read(),beforeRight=right.Read();
+        IntersectClipRect(left.dc,0,0,0,0);IntersectClipRect(right.dc,0,0,0,0);
+        Check(renderer->RenderTargets(targets,2)!=0,"Fully clipped frame failed.");
+        Check(left.Read()==beforeLeft && right.Read()==beforeRight,"Fully clipped targets changed pixels.");
+        Check(!renderer->RenderTargets(nullptr,2) && !renderer->RenderTargets(targets,0),"Invalid target list was accepted.");
+        const MatrixRenderTarget duplicate[]={{left.dc,{0,0,160,128}},{left.dc,{160,32,320,224}}};
+        Check(!renderer->RenderTargets(duplicate,2),"Duplicate target DCs were accepted.");
+        RestoreDC(full.dc,fullState);RestoreDC(left.dc,leftState);RestoreDC(right.dc,rightState);
+        renderer->Release();++cases;
+    }
+    DestroyWindow(window);
+    printf("PASS: %u multi-target cases: all modes, solid/transparent text, strength, glow, italic/special glyphs, monitor seam/gap, translated/clipped DCs, cleanup toggles, fractional audio speed and stable GDI resources.\n",cases);
+}
+
 static void CheckTargetResources(HWND window) {
     Surface background(128,96); background.Fill(0x314159);
     Engine engine(L".\\zsMatrix.dll");
@@ -331,6 +407,7 @@ int wmain(int argc,wchar_t **argv) {
         CheckArithmeticColors(window);
         CheckAudioMotion(window);
         CheckTargetResources(window);
+        CheckMultipleTargets();
         puts("PASS: Legacy rendering, all six blend modes, known RGB fixtures, tiled large glyphs, antialiasing/glow, black/solid startup, strength endpoints/interpolation, idle frames/trails, cleanup, off-screen glyphs, text opacity, special strings, audio, clipping/origin, copies, resize and bounded GDI objects.");
     } catch(const std::exception &error) { fprintf(stderr,"FAIL: %s\n",error.what()); result=1; }
     if(window) DestroyWindow(window);
