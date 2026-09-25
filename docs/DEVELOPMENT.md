@@ -1,187 +1,192 @@
 # ZMatrix module guide
 
-This describes the current Visual Studio build and replaces the historical
-Visual C++ 6.0/Borland notes from SourceCodeReadme.txt. Original ZMatrix copyright:
-Z. Shaker, 2001-2002. Retain source notices; see [LICENSE.TXT](../LICENSE.TXT).
+See [BUILDING.md](../BUILDING.md) for the toolchain and build commands, and the
+[user guide](USER_GUIDE.md) for settings and their defaults. This document covers
+source ownership, compatibility contracts and rendering constraints.
 
-## Application modules
+## Source layout
 
-- `matrix.cpp` and `globals.cpp`: startup, tray commands, configuration,
-  wallpaper updates and screensaver transitions.
-- `DesktopHost.cpp`: discovers Explorer's background/icon hierarchy, creates
-  the rendering child, waits during startup and validates placement. Desktop
-  drawing is suspended when the host is invalid.
-- `zsMatrix`: COM rendering engine, streams, characters and wallpaper blending.
-  The original `IzsMatrix` ABI is retained. `IzsMatrixAppearance.h` supplies the
-  optional Blend strength and glow interfaces without changing existing vtables.
+- `matrix.cpp`, `globals.cpp`: startup, the hidden animation controller, tray
+  commands, configuration, wallpaper updates and screensaver transitions.
+- `DesktopHost.cpp`: discovers and validates Explorer's background/icon
+  hierarchy, including startup waiting and placement below desktop icons.
+- `DesktopWindows.cpp`: owns desktop rendering windows, repairs their placement
+  and recreates them when the display layout or Explorer host changes.
+- `zsMatrix`: COM animation engine, streams, characters, cleanup and blending.
 - `zConfig`: native Win32 configuration, audio, character, help and information
-  dialogs, plus CFG persistence. Output: `Config.dll`. Original Unicode/stdcall
-  entry points remain; new functionality uses additional exports.
-- `Audio`: WASAPI capture, analysis, color mappings and persistence.
-  `AudioRuntime.cpp` connects it to the application. The capture worker never
-  calls the rendering COM object; the UI/rendering thread applies coefficients
-  and transient motion overrides through `IzsMatrixMotion.h`.
-- `MsgHook`, `RegistryListenerThread`, `TopLevelListenerWindow`: Windows
-  notifications and screensaver input handling.
-- `ScreenSaver`: `ZMatrixSS.scr`, which communicates with the running
-  application or starts it for screensaver use.
+  dialogs, plus animation CFG persistence. Produces `Config.dll`.
+- `Audio`: playback capture, analysis, response mappings and audio persistence.
+  `AudioRuntime.cpp` connects these to the application and configuration UI.
+- `MsgHook`, `RegistryListenerThread`, `TopLevelListenerWindow`: input hooks
+  and Windows notifications. The hidden listener owns the animation controller
+  independently of Explorer's windows.
+- `ScreenSaver`: `ZMatrixSS.scr`, which starts or contacts the application.
 
-See [BUILDING.md](../BUILDING.md) for toolchains and output paths.
+## Desktop rendering
 
-## Rendering and configuration
+One engine maintains stream positions, timing, fonts and wallpaper for the
+entire virtual desktop. Modern layered Explorer uses one rendering window per
+monitor. Classic Explorer uses one background window. Each visible window must
+remain in the verified background layer below icons; drawing stops while that
+placement cannot be established.
 
-Desktop rendering uses a verified Explorer background child. It must not fall
-back to a generic desktop window. Screensaver rendering is a separate path.
+`DesktopWindows` acquires the target DCs and maps engine coordinates to each
+monitor with viewport offsets. `IzsMatrixRenderer::RenderTargets` advances the
+animation once and routes drawing to intersecting targets. The caller retains
+ownership of DCs; the engine restores their state and retains no target pointers.
+Targets must also respect their DC clip regions. The ordinary single-DC `Render`
+entry point remains available for screensaver rendering and compatibility.
 
-Rendering is incremental. Blend strength mixes plain characters with the
-wallpaper-blended result in the character-sized work area. Do not introduce a
-fullscreen alpha layer or repaint the entire desktop each frame. Preserve the
-original bitmap result for legacy modes at 100% and remove wallpaper
-contribution at 0% for every mode.
+Explorer surface loss triggers automatic recreation. Display/DPI notifications
+are coalesced before resizing the shared canvas and refreshing the wallpaper.
+The controller, audio state and timers survive surface replacement. A display
+change ends an active screensaver before rebuilding the desktop target.
 
-The UI calls the legacy XOR/AND/OR modes Color inversion, Dark mix and Bright
-mix. Their enum values and CFG identifiers remain unchanged. Wallpaper shading,
-Soft brighten (Screen) and Soft darken (Multiply) append new values. They use
-integer color arithmetic in DrawArithmeticCharacter, with a lazy 48 KiB DIB
-containing three 64 x 64 tiles for glyph coverage, wallpaper and plain/result
-pixels. Larger characters are processed in tiles. No fullscreen buffers or
-per-frame allocations are added. GdiFlush synchronizes the tile before CPU
-access; only dirty character regions are presented. Legacy modes retain their
-GDI path. Full strength skips the plain-character draw. Zero strength bypasses
-wallpaper mixing and frees the tile buffer, as do solid mode and legacy blends.
+Rendering is incremental: new surfaces are cleared once, then streams draw and
+clean up character areas. Fonts, wallpaper and scratch surfaces stay shared;
+there are no per-monitor engines or additional fullscreen output bitmaps. Avoid
+full-desktop repaints per frame, retained target DCs and per-frame allocation.
 
-Shading scales each text channel by wallpaper brightness, approximated as
-(54R + 183G + 19B) / 256. Screen and Multiply use their standard per-channel
-formulas. Glyph coverage includes antialiasing and glow; Blend strength then
-interpolates the result with the plain character. Preserve text-background
-opacity, cleanup, clipping and viewport behavior when extending this path.
+## Blending and glow
 
-The optional minimal glow draws four faint one-pixel character offsets inside
-the existing character rectangle, followed by the original glyph. It reuses
-the same rendering surfaces and cleanup bounds, with no glyph cache or extra
-image buffers. Disabled glow uses the original TextOut path.
+`zsMatrix.cpp` contains character rendering, `DrawArithmeticCharacter` and the
+final output helpers. `CopyOutput`, `ClearOutput` and `DrawOutputCharacter` route
+operations to either the single DC or active monitor targets. Changes to drawing
+must preserve both paths, including cleanup, clipping and italic glyph overhang.
 
-Configuration preview is reversible. The outer dialog persists audio settings
-on acceptance; Cancel restores animation and audio previews. Animation CFGs
-and Audio.cfg are separate formats. Legacy Winamp names remain only for
-configuration compatibility, not as playback dependencies.
+Color inversion, Dark mix and Bright mix retain the original XOR/AND/OR enum
+values, CFG identifiers and GDI operations. Wallpaper shading, Soft brighten
+(Screen) and Soft darken (Multiply) append new values. The arithmetic path uses
+integer channels and a reusable 48 KiB DIB with three 64 x 64 tiles; larger glyphs
+are tiled. `GdiFlush` synchronizes GDI writes before CPU pixel access.
 
-Animation CFG compatibility remains at format 1.0. SpecialStringStreamProbability
-accepts a decimal point or a single decimal comma, including scientific notation,
-independently of the current locale. The complete value must parse and be finite;
-missing or malformed values retain the current probability. Valid values still
-clamp to 0..1. Loading never rewrites the file; the existing atomic save writes
-the probability with a decimal point and preserves ANSI/UTF-16 encoding.
-ConfigCompatibility covers both encodings, legacy decimal notation, invalid
-suffixes/separators and normalization on save.
+Blend strength interpolates between the plain character/background colors at
+0% and the selected wallpaper-blended result at 100%. It does not alpha-blend
+an entire animation layer over the desktop. Preserve the original result for
+legacy modes at full strength. Full strength skips the plain-character draw;
+solid mode, zero strength and legacy modes release the arithmetic tile when
+it is no longer needed.
 
-## Audio analysis and response
+Glow draws four faint one-pixel offsets followed by the original glyph inside
+its character area. It shares the existing surfaces and cleanup bounds. The
+configuration sample uses the same glow helper; it does not preview wallpaper
+mixing or live audio colors.
 
-`AudioResponse` selects the analysis needed by active influences and smooths
-their envelopes using elapsed time, independent of Refresh time. RMS energy
-includes all samples between analysis updates, not only the last FFT window.
-Bass uses per-channel DC rejection and two low-pass stages around 200 Hz;
-opposite-phase channels do not cancel. Brightness scales RGB equally within
-the chosen palette. A soft RMS silence gate returns level-based effects to
-ordinary appearance and motion. Color modulation applies the saved mappings,
-including their Base values in silence. Default RGB scales remain 0 at Base and
-2 at Peak. Waveform offsets default to (0, 0, 0) at Base and (0, 24, 48) at Peak;
-centroid offsets remain zero. The original global response ranges are retained.
-Saved/imported profiles are never silently replaced; Reset effect previews
-defaults for only the selected mapping through the usual rollback path.
+## Audio processing
 
-The worker analyzes roughly every 50 ms. Level-only analysis needs no sample
-ring or FFT storage. Bass adds three filter values per channel. Waveform
-variation uses the sample ring and half the mean absolute difference `v` of up to
-576 signed floating-point samples at 44.1 kHz reference spacing. After averaging
-channels, a fixed curve `1.02 * v / (v + 0.02)` expands the musical range while
-preserving the 0 and 1 endpoints. With the original Global scale 3 and offset
--0.3, raw differences around 0.0022..0.0148 span Base to Peak. The curve has no
-running peak or adaptive gain, so a loud passage cannot suppress later input.
-Near-silent differences approach zero continuously. Linear
-interpolation provides approximate sample-rate consistency. Only available
-history is used, avoiding artificial startup differences against zero padding.
-There is no byte quantization, unsigned zero-crossing wrap, temporary waveform
-array or FFT for this effect. Spectral centroid additionally uses a reused
-2048-point FFT buffer and cached Hann window/stage coefficients. Disabled
-analyses do not run, and unneeded buffers are released when the mask changes.
-Capture stops when no influence is active. No PCM is written to disk.
+The WASAPI worker analyzes selected playback output roughly every 50 ms and
+publishes descriptors; it never calls the rendering COM object. The rendering
+thread applies RGB coefficients and transient motion overrides. Analysis is
+selected by active influences: level needs no FFT, waveform uses sample history,
+and centroid adds a reused 2048-point FFT. Capture stops when no influence needs
+analysis. Audio samples are not saved to disk.
 
-Return to normal during silence adds full-band RMS analysis even for color-only
-setups. The capture worker measures continuous silence with GetTickCount64 and
-publishes its duration, so slow or paused rendering cannot miss intermediate
-sound. SilenceDetector enters below RMS 0.0003 (about -70 dBFS), exits at 0.0006
-(about -64 dBFS), and keeps its state between those thresholds. Device restarts,
-PCM discontinuities, capture gaps over a second and changes to level-analysis
-availability reset the timer.
-No active influences means no capture, even if silence return is enabled.
+`AudioAnalysis.cpp` computes full-band RMS, bass energy, waveform variation and
+spectral centroid. RMS includes all samples between updates. Bass filters each
+channel separately to avoid opposite-phase cancellation. Waveform variation
+uses signed floating-point differences at 44.1 kHz reference spacing and a fixed
+response curve, with no adaptive peak or gain state. Do not reintroduce byte
+quantization, unsigned wrapping or startup comparisons against missing history.
 
-After the configured delay, AudioResponse blends its final RGB coefficients and
-motion multipliers to identity over 0.3 seconds; resumed sound or disabling the
-option reverses the transition. Only time past the delay contributes to the
-fade. Full bypass produces exact identity values and a waiting status; it never
-changes the master enable setting. Analysis and capture continue while waiting.
-This adds scalar state and no new sample or rendering buffers.
+`AudioResponse.cpp` smooths responses using elapsed time, not frame count.
+Brightness scales RGB equally; Speed and New streams have independent motion
+multipliers. Color modulation smooths the normalized response before applying
+Base/Peak mappings. A soft RMS gate restores normal brightness and motion near
+silence; color mapping retains its Base behavior unless silence return bypasses it.
 
-The engine keeps two fractional budgets for motion: virtual update ticks and
-new stream births. Speed is limited to 1..2, birth rate to 0..2. Births are
-scheduled once per real frame, independently of the virtual tick count, and
-never exceed Maximum streams. Every intermediate tick is drawn to preserve
-special strings and cleanup. There are no new rendering surfaces or per-stream
-allocations. Normal multipliers retain the original single-update behavior.
+Silence return measures continuous silence on the capture thread, independently
+of rendering, Source and Sensitivity. Its RMS thresholds are 0.0003 to enter and
+0.0006 to leave silence. Capture gaps, discontinuities and device restarts reset
+the timer. After the configured delay, coefficients and motion blend to exact
+identity over 0.3 seconds. Capture continues while waiting; resumed sound reverses
+the transition. The master enable setting is unchanged.
 
-Audio.cfg version 3 adds ReturnOnSilence and SilenceDelaySeconds under Reaction.
-Silence return defaults to enabled with a 5-second delay, including when loading
-versions 1 and 2. Version 3 preserves the user's saved choice.
-Version 2 stores each influence and its amount separately. Version 1
-loads with only Color modulation enabled and no smoothing, preserving saved
-parameters. The corrected waveform calculation applies to every settings
-version; exact reproduction of the old Winamp waveform response is not retained.
-The executable/Config.dll host contract is version 3;
-reject other versions before copying Settings or Status structures. The five
-original Config exports and all existing COM interface vtables are unchanged.
+The engine keeps fractional budgets for motion ticks and stream births. Speed
+is limited to 1..2 and birth rate to 0..2. Births are scheduled once per real
+frame, independently of virtual ticks, and obey Maximum streams. Intermediate
+motion ticks are drawn to preserve special strings and cleanup.
 
-`AudioTests`, `AudioResponseTests`, `AudioRuntimeTests`, `ConfigDialogs` and
-`BlendStrengthTests` cover persistence/migration, analysis, independent effects,
-envelopes, endpoint failure, preview rollback and motion rendering. The response
-test links AudioSettings.cpp, AudioAnalysis.cpp and AudioResponse.cpp and covers
-the original profile over repeated PCM sequences; runtime tests also need
-AudioAnalysis.cpp, AudioCapture.cpp and AudioRuntime.cpp. Keep test output
-outside source directories. AudioCaptureSmoke's test tone is explicitly opt-in.
-AudioSilenceRuntimeTests substitutes capture data to verify waiting/resume and
-the real engine without depending on ambient playback; link it with
-AudioRuntime.cpp, AudioSettings.cpp and AudioResponse.cpp, omitting AudioCapture.cpp.
+## Interfaces and settings compatibility
 
-## Uninstall settings cleanup
+Preserve the original `IzsMatrix` vtable and Config exports. Optional COM
+interfaces add appearance/glow (`IzsMatrixAppearance.h`), motion
+(`IzsMatrixMotion.h`) and multiple render targets (`IzsMatrixRenderer.h`).
+The executable/Config.dll audio host contract is version 3; validate the version
+and structure size before exchanging settings or status.
 
-The active installer asks about settings only after interactive uninstall has
-been confirmed. No is the default; silent uninstall and setup keep settings.
-Cleanup runs after program removal and deletes only the four known settings
-files in the uninstalling account's profile. It leaves named presets and other
-accounts alone, refuses redirected profile directories and reports failures.
+Configuration is a preview transaction. The outer dialog saves animation and
+audio settings on acceptance; Cancel restores both previews. Animation CFGs and
+`Audio.cfg` remain separate formats. Defaults live in `default.cfg`, engine
+initializers, `zConfig/Settings.cpp` and `Audio/AudioSettings.cpp`.
 
-Run `tests/UninstallSettingsTests.ps1 -WorkDirectory <temporary-directory>` with
-Inno Setup installed. It compiles the production uninstall code into a fixture
-with an isolated profile path and simulated user answers. It exercises actual
-install/uninstall events, preservation, cleanup, locked files and junctions
-without registering ZMatrix or touching the installed application or settings.
-Fixtures and logs stay in the selected directory for inspection.
+Animation CFG format remains 1.0. The reader accepts legacy ANSI and UTF-16 LE,
+including a decimal point or single decimal comma in special-string probability.
+Malformed or non-finite probabilities leave the current value unchanged; valid
+values clamp to 0..1. Loading does not rewrite files. Atomic save preserves the
+existing encoding and writes decimal points.
 
-## Documentation and historical material
+`Audio.cfg` saves version 3 and loads versions 1, 2 and 3:
 
-[USER_GUIDE.md](USER_GUIDE.md) is the current manual. The archived website,
-preprocessed HTML manual and empty CHM files are not part of the help system.
+- Version 1 keeps its mappings, selects only Color modulation and uses zero
+  smoothing.
+- Version 2 adds independent influences and strengths.
+- Versions 1 and 2 receive silence return enabled with a 5-second delay;
+  version 3 preserves the saved choice.
 
-`Config` retains the original Borland implementation and the About/Hire HTML,
-images and sound. The native build consumes these assets through
-`zConfig/zConfig.rc`; it does not compile VCL. About/Hire content awaits a
-separate review.
+The current waveform analysis applies to every settings version. Existing
+mappings are preserved; Reset effect restores only the selected mapping.
+Legacy Winamp section/key names remain serialization identifiers. Importing
+`vis_zmx.cfg` does not introduce a playback dependency.
 
-`ORIGINALREADME.md` preserves original author information.
-`Matrix Code Font ReadMe.txt` records the font author and distribution notice.
-`mem_manager_readme.txt` accompanies the third-party `mmgr` code still listed
-in the native projects. These are historical/third-party documents, not current
-build or user instructions.
+Interactive uninstall offers removal of four known files in the uninstalling
+account's settings directory. The default answer is No. Silent uninstall and
+upgrades preserve settings. Cleanup leaves named presets and other accounts
+alone, rejects redirected profile directories and reports failures.
 
-See [SCRIPTS.md](SCRIPTS.md) for the active entry points and old scripts retained
-for review.
+## Verification
+
+Tests are standalone executables, not solution projects. Build with the x86 VS
+tools, run from the repository root and keep outputs in an ignored directory.
+[BUILDING.md](../BUILDING.md) provides a compile/run example.
+
+- `ConfigCompatibility`, `ConfigTextFormat`, `ConfigDialogs`: CFG encodings and
+  migration, text formats, exports, dialogs and preview rollback.
+- `BlendStrengthTests`: blend endpoints and reference pixels, glow, cleanup,
+  motion, large glyphs, GDI lifetime and equivalent single/multiple-target output.
+  An optional DLL argument compares against a retained reference build.
+- `DesktopHostTests`: isolated Explorer layouts, icon ordering, startup waits,
+  surface loss and rebuilds. Link `DesktopHost.cpp` and `DesktopWindows.cpp`,
+  and embed `manifest.xml`. Its optional `--explorer-smoke` uses a hidden child
+  of the real desktop.
+- `AudioTests`, `AudioResponseTests`, `AudioRuntimeTests`: persistence, analysis,
+  response envelopes and runtime state. `AudioSilenceRuntimeTests` substitutes
+  capture data to test silence/resume with the real engine.
+- `AudioCaptureSmoke`: real playback capture; its generated tone is opt-in.
+- `DocumentationTests`: bundled documents, links, search, navigation and
+  standalone `/help` and `/readme`. Uses test-owned windows.
+- `tests/UninstallSettingsTests.ps1 -WorkDirectory <temporary-directory>`:
+  builds an Inno Setup fixture and tests uninstall events with an isolated
+  profile, including preservation, removal failures and junctions.
+
+Isolated tests do not replace real Explorer, monitor hot-plug, DPI, screensaver
+and target-Windows testing. For performance comparisons, keep the build settings,
+wallpaper, display layout and audio workload identical and include a paused
+baseline. Distinguish ZMatrix CPU/memory from DWM and per-adapter GPU engines;
+process memory counters do not include every driver/compositor allocation.
+
+## Documentation and retained material
+
+The native help viewer reads the UTF-8 documents listed in
+`zConfig/DocumentDialog.cpp`. Packaging checks them with
+`scripts/Test-Documentation.ps1` and copies them through
+`scripts/Build-Distribution.ps1` and `Setup/ZMatrix_payalord.iss`. Keep these lists
+aligned when adding or renaming a bundled document. Use simple headings,
+paragraphs, lists, code and links; the viewer supports a limited Markdown subset.
+
+`Config` contains the unused VCL implementation and original About/Hire resources.
+The native DLL still embeds the HTML, images and WAV through `zConfig/zConfig.rc`;
+these assets are not a website mirror or build-tool dependency.
+`ORIGINALREADME.md`, the font notice and `mem_manager_readme.txt` preserve original
+or third-party information. Retain copyright/license notices; see
+[LICENSE.TXT](../LICENSE.TXT). [SCRIPTS.md](SCRIPTS.md) identifies historical build
+and website scripts that are outside the current build.

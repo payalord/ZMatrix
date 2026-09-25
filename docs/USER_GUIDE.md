@@ -4,8 +4,9 @@ This guide describes the current ZMatrix source build. Features in an older
 published installer may differ. ZMatrix runs as an animated desktop background
 and can also be used as a screensaver.
 
-Homepage and downloads: https://payalord.github.io/ZMatrix/
-Support and bug reports: https://github.com/payalord/ZMatrix/issues
+[Homepage and downloads](https://payalord.github.io/ZMatrix/)
+
+[Support and bug reports](https://github.com/payalord/ZMatrix/issues)
 
 ## Getting started
 
@@ -24,6 +25,10 @@ the background starts solid and is filled progressively by moving streams.
 ZMatrix waits for a usable Explorer background layer before starting. If it
 cannot connect within a minute, choose Retry to wait again or Cancel to exit.
 It does not intentionally draw over application windows in desktop mode.
+
+The Help window works offline. Choose a document or section from its lists,
+or search for a setting by name. Help and Readme can also be opened from the
+Start menu without starting the animation.
 
 ## Configuration and preview
 
@@ -55,26 +60,31 @@ the bright leading character; Trail is the faded character left behind it.
 Background selects the background color. Copy ordinary colors to special
 copies the ordinary Lead and Trail colors to the special-string colors.
 
-Enable glow adds a fixed, narrow halo in the character's color. It is off by
-default and applies to both ordinary and special text, including audio color
-changes. The effect stays inside each character area, so its edges may be
-clipped with tightly packed fonts. It adds drawing work without extra image
-buffers. Changes appear as streams draw new characters; existing trails remain
-until they are redrawn or cleared.
+Enable glow adds a narrow halo to ordinary and special text. It is off by
+default and adds drawing work. The sample updates immediately; the running
+animation shows changes as new characters are drawn. The halo can be clipped
+with tightly packed fonts.
 
 Audio reaction can change visible colors even if these selections have not
 changed. See Keeping the original palette below.
 
 ### Streams and performance
 
-Maximum streams limits the number of streams. Speed variance controls how
-different their speeds can be; zero gives them the same speed. Refresh time
-(ms) controls the interval between animation updates. A larger interval reduces
-update frequency and slows the animation; a smaller interval updates more often.
+Maximum streams limits the total number of streams across the desktop. Speed
+variance controls how different their speeds can be; zero gives them the same
+speed. Slower streams also use dimmer character colors. Refresh time (ms)
+controls the interval between updates. A larger interval reduces update
+frequency and slows the animation; a smaller interval updates more often.
 
-To reduce animation work, lower Maximum streams or increase Refresh time.
+To reduce animation work, lower Maximum streams, increase Refresh time or
+disable glow. Audio-driven speed and stream creation can add drawing work.
 Process priority controls how Windows schedules ZMatrix against other tasks;
 the default is Idle. Raising priority does not reduce the work performed.
+
+Desktop animation also creates GPU work in Windows' Desktop Window Manager
+(dwm.exe). ZMatrix's own CPU usage alone does not show the total cost. To compare
+settings, keep the wallpaper, monitor layout and audio playback the same, and
+use Pause to check the baseline with stream updates stopped.
 
 ### Background and blending
 
@@ -84,11 +94,11 @@ bitmap blending.
 
 Bitmap blending controls how character colors mix with the wallpaper:
 
-- Color inversion (formerly XOR) changes colors dramatically. White characters
-  invert the wallpaper colors; other character colors invert selected bits.
-- Dark mix (formerly AND) combines colors into a darker result. Some color
+- Color inversion changes colors dramatically. White characters invert the
+  wallpaper colors; other character colors produce different color shifts.
+- Dark mix combines colors into a darker result. Some color
   combinations can become almost invisible.
-- Bright mix (formerly OR) combines colors into a brighter result.
+- Bright mix combines colors into a brighter result.
 - Wallpaper shading uses the brightness of wallpaper details while retaining
   the character's hue. A colorful picture appears in shades of the text color.
 - Soft brighten (Screen) lightens the result with smooth color transitions.
@@ -96,11 +106,8 @@ Bitmap blending controls how character colors mix with the wallpaper:
 - Soft darken (Multiply) darkens and colors wallpaper details with smooth
   transitions. It suits light wallpapers; dark areas can hide characters.
 
-The first three modes retain their original appearance and CFG identifiers.
-Wallpaper shading uses the current character color, including audio changes.
-These modes change colors; Enable glow separately adds a narrow character halo.
 The color/font sample shows text colors and glow on the selected solid color;
-wallpaper mixing is previewed in the running animation.
+wallpaper mixing and audio color changes are visible in the running animation.
 
 Text background selects Transparent or Opaque for the area behind individual
 characters. It does not set the transparency of the entire desktop animation.
@@ -112,10 +119,9 @@ Blend strength (%) controls the wallpaper contribution to each character area:
   contribution.
 - Intermediate values mix these two results.
 
-This does not make the animation window transparent over a visible wallpaper.
-The solid start and gradual filling by streams are preserved. Existing trails
-update as the animation progresses. Bitmap blending and Blend strength are
-disabled in Solid color mode.
+The background starts solid and streams gradually reveal the blended image.
+Existing trails update as the animation progresses. Bitmap blending and Blend
+strength are disabled in Solid color mode.
 
 ### Trail cleanup
 
@@ -125,6 +131,9 @@ character. Back trace sets that distance in character positions.
 Randomized cleanup erases positions in a range behind the leading character.
 Leading sets the distance at which the range begins; Space padding sets how
 far it extends beyond that point. Both methods can be enabled independently.
+
+Cleanup affects trails as streams move. Switching it off does not immediately
+restore pixels that were already cleared or change the selected Trail colors.
 
 ## Audio reaction
 
@@ -155,7 +164,7 @@ strength. A strength of 0% has no effect. Enable just the influences you want.
   more in louder passages. Maximum strength ranges from zero to twice the normal
   birth rate. Existing streams finish naturally, and Maximum streams still
   applies. This changes the arrival rate, not the length of existing trails.
-- Color modulation enables the older RGB mappings described below. It can
+- Color modulation enables the RGB mappings described below. It can
   change the palette and works independently of the other three influences.
 
 Source selects Audio level (overall loudness, measured as RMS) or Bass energy
@@ -169,45 +178,45 @@ lower it if the response stays near 100%. Smoothness (%) softens transitions,
 including Color modulation. Motion always has a short smoothing period to
 avoid abrupt speed jumps; 0% gives its fastest response.
 
-After sustained silence, brightness and motion gradually return to their
-ordinary values. The older Color modulation mapping retains its Base behavior
-in silence unless Return to normal during silence is enabled. Changes affect
-newly drawn characters; existing trails keep their pixels until redrawn or cleared.
+Near silence, brightness and motion gradually return to their ordinary values.
+Color modulation retains its Base behavior unless silence return is enabled.
+Changes affect newly drawn characters; existing trails keep their pixels until
+redrawn or cleared.
 
-For a new configuration, audio reaction is disabled. Brightness is the only
-influence selected when it is first enabled. Speed, New streams and Color
-modulation are opt-in. Faster motion and more streams add drawing work; modest
-strengths are usually more suitable for a desktop background.
+For a new configuration, audio reaction is disabled. Its initial settings are:
+
+- Playback output: System default output; Source: Audio level.
+- Sensitivity: 400%; Smoothness: 50%.
+- Brightness: selected, strength 50%.
+- Speed: unchecked, saved strength 35%.
+- New streams: unchecked, saved strength 50%.
+- Color modulation: unchecked; Effect: Waveform variation.
+- Return to normal during silence: selected, delay 5 seconds.
 
 ### Returning to normal during silence
 
-**Return to normal during silence** temporarily removes all audio influences
-after **Silence delay (seconds)** of continuous silence. It is enabled by
-default, so turning on Enable audio reaction also activates this behavior.
-The delay defaults to 5 seconds and accepts whole numbers from 1 to 60.
-You can turn this option off; your saved choice is preserved.
+Return to normal during silence temporarily removes all audio influences after
+Silence delay (seconds) of continuous silence. The delay accepts whole numbers
+from 1 to 60. Turning this option off preserves the usual audio behavior.
 
 The transition to ordinary colors, brightness, speed and stream creation takes
 about 0.3 seconds. Enable audio reaction stays checked. Capture continues, and
 the selected effects return over about 0.3 seconds when sound resumes, without
-waiting for the silence delay again. The status reads "Waiting for sound.
-Ordinary appearance is active." while audio influences are fully bypassed.
+waiting for the silence delay again. The status reports "Waiting for sound.
+Ordinary appearance is active." during the bypass.
 
 Silence is measured from all sound on the selected playback output, including
 system sounds, independently of Source and Sensitivity. A low fixed threshold
 and a small gap between the silence and sound thresholds prevent noise from
 repeatedly switching the effect. Short pauses do not activate the bypass.
-Existing trails retain their colors until redrawn or cleared; this option does
-not restart the animation or repaint the entire desktop. Reset effect leaves
-the silence option and delay unchanged.
+This does not restart the animation or immediately recolor existing trails.
 
 ### Color modulation
 
 Waveform variation reacts to changes between signed audio samples. Both level
 and frequency affect it; it is not simply a volume meter. Lowering a signal's
 amplitude lowers its response, including very quiet signals near zero.
-The response uses a fixed curve to give ordinary audio a useful color range;
-it does not automatically turn down sensitivity after a loud passage.
+Its response does not automatically turn down sensitivity after a loud passage.
 
 Spectral centroid reacts to the balance of frequencies. Higher-frequency
 content increases the response; it is not a beat detector.
@@ -218,28 +227,27 @@ color channels. Offset adds an RGB color. Between Base and Peak, the mapping
 changes gradually with the response. Strong scales and offsets can saturate
 channels and produce colors quite different from the ordinary green palette.
 
-Both default profiles scale RGB from 0% at Base to 200% at Peak. Waveform
-variation uses Offset RGB (0, 0, 0) at Base and (0, 24, 48) at Peak. This modest
-addition keeps more of the selected palette than the original strong offsets.
-Spectral centroid uses zero offsets at both ends, adding no color of its own.
-Offset is added to the scaled symbol color; it is not the final symbol color.
-Both profiles can saturate channels at strong responses. Brightness and
-wallpaper blending also affect the final result.
-Reset effect restores only the selected effect's color mapping and global
-scale/offset; it leaves the other effect, output, Smoothness and level/motion
-settings unchanged. Reset is previewed immediately; Cancel restores the previous
-settings, and the enclosing Configuration dialog must be accepted to save it.
-
-Existing and imported color mappings are kept as saved. Use Reset effect to
-restore the complete current default profile, including offsets and the global response
-range; changing only Base/Peak percentages does not restore the entire profile.
-Waveform variation now uses signed fractional samples instead of the original
-Winamp byte calculation, so its response changes even with an existing mapping.
-It no longer produces large false responses from tiny zero crossings.
-
 Global scale (%) multiplies the measured response. Global offset (%) shifts
 it, and the result is limited to 0%-100%. These settings control how quickly
 the mapping moves from Base to Peak.
+
+Reset effect restores the following defaults for the selected effect:
+
+- Both effects: Base R/G/B 0%; Peak R/G/B 200%; Base Offset RGB (0, 0, 0).
+- Waveform variation: Peak Offset RGB (0, 24, 48), Global scale 300%,
+  Global offset -30%.
+- Spectral centroid: Peak Offset RGB (0, 0, 0), Global scale 500%,
+  Global offset 0%.
+
+Offsets are added to scaled character colors; they are not the final colors.
+Brightness and wallpaper blending also affect the result. The Waveform
+variation Peak offset therefore does not mean that the text will be blue.
+
+Reset leaves the other effect and all output, response, influence and silence
+settings unchanged. Existing/imported mappings stay as saved until changed or
+reset. Accept both the audio editor and Configuration to save a reset; Cancel
+restores the previous preview. Changing only Base/Peak percentages does not
+restore the complete profile.
 
 ### Keeping the original palette
 
@@ -263,11 +271,11 @@ not install or require Winamp. Import enables Color modulation but leaves the
 master capture switch and other influences unchanged. Old section names remain
 for compatibility; current playback capture is built into ZMatrix.
 
-Existing Audio.cfg version 1 files retain their saved color mappings when
-loaded: Color modulation is selected, the three new influences are off, and
-Smoothness is 0%. The corrected waveform analysis still applies. They are saved
-in version 3 format when settings are accepted. Version 1 and 2 configurations
-load with Return to normal during silence on and a 5-second delay.
+Older audio configurations load automatically and retain their saved mappings.
+The earliest format selects only Color modulation with Smoothness 0%. Files
+predating silence return receive that option enabled with a 5-second delay.
+Current waveform analysis also applies to old and imported mappings, so their
+response can differ from the original Winamp implementation.
 
 ## Saving, loading and resetting settings
 
@@ -298,8 +306,7 @@ CFG reader. The documentation files themselves use UTF-8.
 Older animation and screensaver CFGs load directly without an installer
 conversion. Special-string probability accepts either a decimal point or the
 decimal comma used by some older configurations (for example, 0,25 means 25%).
-Loading leaves the file unchanged; saving writes this value with a decimal
-point while preserving the file's existing ANSI or UTF-16 encoding.
+Loading leaves the file unchanged; saving preserves its supported encoding.
 
 ## Automatic startup
 
@@ -343,15 +350,17 @@ wallpapers produce different results with the same color selections.
 
 ### Old wallpaper or incorrect display arrangement
 
-Select Refresh from the tray menu. If monitor layout or scaling changed and
-the result remains wrong, exit and start ZMatrix again.
+ZMatrix rebuilds its desktop target when monitor layout or scaling changes.
+Select Refresh from the tray menu if the wallpaper is stale. If the arrangement
+remains wrong after the display change settles, restart ZMatrix and report the
+monitor resolutions, scaling and relative positions.
 
 ### Startup waits or drawing appears above desktop icons
 
-Startup waits for a usable Explorer background layer and offers Retry or Cancel
-if it cannot connect. If validation later fails, desktop drawing is suspended.
-If Explorer destroys the background window, restart ZMatrix after Explorer
-has recovered.
+Startup waits for a usable Explorer background layer. If that layer becomes
+unavailable later, ZMatrix suspends desktop drawing and retries automatically.
+It recreates rendering windows after Explorer replaces them. If animation does
+not return after Explorer recovers, restart ZMatrix and report the problem.
 
 Drawing over icons in desktop mode is a defect. Report the Windows build,
 display layout, scaling, ZMatrix version and reproduction steps. If it happens
@@ -360,15 +369,23 @@ does not identify the cause.
 
 ### Multiple monitors
 
-The animation uses the Windows virtual desktop, including monitors left of or
-above the primary display. If there is a problem, report each monitor's
-resolution, scaling and relative position. Mixed-DPI layouts and Explorer
-behavior can differ between Windows versions.
+The animation spans the Windows virtual desktop, including monitors left of or
+above the primary display. Maximum streams is shared across monitors. Modern
+Explorer uses a separate rendering window for each monitor automatically; no
+additional setting is needed. Mixed-DPI layouts and Explorer behavior can differ
+between Windows versions.
 
 ### Missing characters
 
 Choose a font containing the selected characters or load a suitable character
 set. Ordinary characters and special strings have separate fonts.
+
+## About and the original author's message
+
+Open Help > About ZMatrix from Configuration. Play original author message
+starts the recording; the green triangle changes to a square while it plays.
+Press the same button to stop. Playback also stops when the dialog closes and
+never starts automatically when About opens.
 
 ## Uninstalling
 

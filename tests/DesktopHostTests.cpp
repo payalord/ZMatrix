@@ -1,4 +1,4 @@
-// Build with DesktopHost.cpp and manifest.xml using the x86 Visual Studio tools.
+// Build with DesktopHost.cpp and DesktopWindows.cpp; embed manifest.xml using the x86 VS tools.
 // Default: isolated, test-owned Explorer layouts. --explorer-smoke: briefly create
 // a hidden child on the real desktop; no wallpaper, icon or configuration changes.
 #include "../DesktopHost.h"

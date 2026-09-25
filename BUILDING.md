@@ -14,8 +14,7 @@ complete x64 application build.
 
 All application modules, including `Config.dll`, build with Visual Studio.
 Borland/C++Builder, VCL, MFC, Winamp, Perl/Filepp and HTML Help Workshop are not
-required. Original About/Hire assets remain in `Config` pending a separate
-review; they do not make C++Builder a build dependency.
+required. The native DLL embeds the original About/Hire resources from `Config`.
 
 ## Compile the application
 
@@ -60,8 +59,9 @@ Git. For an already complete, matching Release build:
 Do not use `-SkipBuild` after changing code or compiled resources until you
 rebuild the solution. Custom tool locations can be supplied with `-MSBuildPath`
 and `-InnoSetupPath`. Set the application version resources and installer
-version explicitly before publishing. The current installer output is
-`DistroNT\Output\ZMatrixSetupNT_1_5_4.exe`.
+version explicitly before publishing. The installer is written to
+`DistroNT\Output\ZMatrixSetupNT_<major>_<minor>_<release>.exe`, using the version
+defined in `Setup\ZMatrix_payalord.iss`.
 
 `CreateDistroNT.bat` invokes the normal PowerShell build.
 `CompleteDistroNT.bat` invokes it with `-SkipBuild`. Other retained BAT files
@@ -72,8 +72,18 @@ releases.
 
 [docs/USER_GUIDE.md](docs/USER_GUIDE.md) is the current user manual. Update it
 when a setting, menu command or supported behavior changes. The native help
-window reads the installed UTF-8 Markdown documents; it needs no browser,
-Markdown file association, website mirror or CHM compiler.
+window reads installed UTF-8 Markdown documents with no browser or CHM compiler.
+
+Check documentation without rebuilding the application:
+
+```powershell
+.\scripts\Test-Documentation.ps1
+```
+
+Documentation-only edits do not require recompiling the binaries. Package them
+with `-SkipBuild` when a matching Release build is available. The installer
+copies the documents beside the application; an existing installation keeps
+its previous copies until updated.
 
 Keep documentation, comments and UI text in English. Preserve original author
 credits and notices for bundled code and fonts. See
@@ -85,7 +95,7 @@ From the x86 VS tools prompt in the repository root, for example:
 
 ```bat
 mkdir tests\Debug
-cl /nologo /EHsc /W4 /DUNICODE /D_UNICODE tests\ConfigCompatibility.cpp /Fotests\Debug\ /Fetests\Debug\ConfigCompatibility.exe ole32.lib gdi32.lib
+cl /nologo /std:c++17 /EHsc /W4 /DUNICODE /D_UNICODE tests\ConfigCompatibility.cpp /Fotests\Debug\ /Fetests\Debug\ConfigCompatibility.exe ole32.lib gdi32.lib
 tests\Debug\ConfigCompatibility.exe
 ```
 
@@ -94,12 +104,11 @@ compatibility and save/load behavior with temporary files. `--engine-only`
 deliberately skips Config checks and does not replace the full test.
 Keep generated test files in ignored output folders or outside the repository.
 
-Other tests cover dialogs, character text formats, audio analysis/capture,
-desktop host selection and Blend strength pixels. Read each test's introductory
-comment: dialog tests open test-owned windows, and audio smoke tests use playback
-capture. Do not overwrite an installed user's configuration during testing.
+See the test inventory in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for coverage
+and dependencies. Dialog tests open test-owned windows, and audio smoke tests
+use playback capture. Do not overwrite an installed user's configuration.
 
 Before release, verify Help and Readme from the application and installed
 shortcuts, configuration OK/Cancel, audio device changes, startup, screensaver
-behavior, installation and upgrades. No stale CHM should remain the active Help
-target. Isolated tests do not replace testing with Explorer and real displays.
+behavior, installation and upgrades. Include monitor connect/disconnect, scaling
+changes and Explorer restart. Isolated tests do not replace these system checks.

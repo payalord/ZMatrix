@@ -9,6 +9,7 @@ no standalone resource step or C++Builder installation is required.
 Borland implementation. They do not produce the DLL used by the current
 solution and are not current build instructions.
 
-About/Hire assets remain in use and await a separate review. Do not remove them
-just because the VCL implementation is historical. See [BUILDING.md](../BUILDING.md)
-for the current build and distribution commands.
+The About dialog plays the original author's sound only when requested, with
+one button to play or stop it. Keep the HTML, images and WAV referenced by the
+native resource file even though the VCL implementation is unused. See
+[BUILDING.md](../BUILDING.md) for build and distribution commands.

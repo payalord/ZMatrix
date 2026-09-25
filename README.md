@@ -18,10 +18,9 @@ release. Download the installer from the homepage for a published build.
 Right-click its notification-area icon to configure the animation, pause it,
 refresh the wallpaper, change startup behavior or use the screensaver.
 
-The current code includes native Visual Studio configuration dialogs,
-customizable fonts and colors, wallpaper blending with adjustable strength,
-and optional audio reaction to sound playing through a selected Windows
-playback output. No Winamp plugin is required.
+Customize fonts, colors, glow and wallpaper blending, or enable audio reaction
+to sound playing through a Windows playback output. Brightness, speed, stream
+creation and color modulation can be controlled independently.
 
 Read the [user guide](docs/USER_GUIDE.md) for the settings, audio palette
 controls, configuration files and troubleshooting. Help is also available
@@ -29,11 +28,12 @@ from the application's menu without an Internet connection.
 
 ## Building and contributing
 
-See [BUILDING.md](BUILDING.md) for Visual Studio 2022/v143 and Inno Setup 6
-instructions, [the module guide](docs/DEVELOPMENT.md) for the current source
-layout, and [the script inventory](docs/SCRIPTS.md) for active and legacy build
-commands. The application build is 32-bit Unicode; x64 is not a complete build
-target. C++Builder and Winamp are not required.
+- [BUILDING.md](BUILDING.md): prerequisites, compilation, packaging and checks.
+- [Module guide](docs/DEVELOPMENT.md): source layout and implementation contracts.
+- [Script inventory](docs/SCRIPTS.md): current commands and historical scripts.
+
+The complete application builds with Visual Studio 2022/v143 as 32-bit Unicode;
+Inno Setup 6 packages the installer. C++Builder and Winamp are not required.
 
 When reporting a problem, include your Windows version, ZMatrix version, steps
 to reproduce it, and relevant display or audio settings. Review personal
