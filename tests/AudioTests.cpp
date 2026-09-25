@@ -19,11 +19,11 @@ static audio::PcmFormat Format(unsigned rate, unsigned channels, unsigned bits =
     f.nBlockAlign = static_cast<WORD>(channels*bits/8); f.nAvgBytesPerSec = rate*f.nBlockAlign;
     audio::PcmFormat result; Check(result.Read(f),"Supported PCM format rejected."); return result;
 }
-static audio::Descriptors Tone(unsigned rate, unsigned channels, double frequency, double amplitude, bool reversed = false, unsigned mask = audio::AnalyzeLegacy) {
+static audio::Descriptors Tone(unsigned rate, unsigned channels, double frequency, double amplitude, bool reversed = false, unsigned mask = audio::AnalyzeLegacy, double dc = 0) {
     auto format = Format(rate,channels); audio::Analyzer analyzer(format,mask);
     std::vector<float> pcm(8192*channels);
     for(unsigned i = 0; i < 8192; ++i) for(unsigned c = 0; c < channels; ++c)
-        pcm[i*channels+c] = static_cast<float>(amplitude*std::sin(6.283185307179586*frequency*i/rate)*(reversed && c%2 ? -1 : 1));
+        pcm[i*channels+c] = static_cast<float>(dc+amplitude*std::sin(6.283185307179586*frequency*i/rate)*(reversed && c%2 ? -1 : 1));
     // Exercise arbitrary packet boundaries and ring wraparound.
     analyzer.Push(reinterpret_cast<const BYTE *>(pcm.data()),31,false);
     analyzer.Push(reinterpret_cast<const BYTE *>(pcm.data()+31*channels),8192-31,false);
@@ -44,10 +44,18 @@ int wmain() {
     try {
         auto settings = audio::Defaults();
         Check(!settings.enabled && settings.mode == audio::WaveformVariation && audio::Valid(settings),"Audio must default to disabled.");
-        const auto base = audio::Map(settings.profiles[0],0), peak = audio::Map(settings.profiles[0],1);
-        Check(base.scale[0] == 0 && base.offset[1] == 64 && base.offset[2] == 128,"Waveform variation base colors changed.");
-        Check(peak.scale[2] == 2 && peak.offset[0] == 128 && peak.offset[1] == 255,"Waveform variation peak colors changed.");
+        const auto &waveform = settings.profiles[audio::WaveformVariation];
+        const auto &centroid = settings.profiles[audio::SpectralCentroid];
+        for(int c = 0; c < 3; ++c)
+            Check(waveform.baseScale[c] == 0 && waveform.peakScale[c] == 2 &&
+                centroid.baseScale[c] == 0 && centroid.peakScale[c] == 2 &&
+                centroid.baseOffset[c] == 0 && centroid.peakOffset[c] == 0,"Original color scales or centroid offsets changed.");
+        Check(waveform.baseOffset[0] == 0 && waveform.baseOffset[1] == 64 && waveform.baseOffset[2] == 128 &&
+            waveform.peakOffset[0] == 128 && waveform.peakOffset[1] == 255 && waveform.peakOffset[2] == 255 &&
+            waveform.globalScale == 3 && waveform.globalOffset == -0.3 && centroid.globalScale == 5 && centroid.globalOffset == 0,
+            "Original color offsets or response ranges changed.");
         auto mapping = settings.profiles[1]; mapping.globalScale = 1;
+        for(int c = 0; c < 3; ++c) { mapping.baseScale[c] = 0; mapping.peakScale[c] = 2; mapping.peakOffset[c] = 0; }
         const auto middle = audio::Map(mapping,0.25);
         Check(middle.scale[0] == 0.5 && middle.offset[0] == 0,"Fractional color coefficients were truncated.");
         Check(audio::Map(mapping,-1).scale[0] == 0 && audio::Map(mapping,2).scale[0] == 2,"Mapping clamp failed.");
@@ -63,6 +71,13 @@ int wmain() {
         Check(audio::Load(file.c_str(),loaded) == 0 && loaded.enabled && loaded.mode == audio::SpectralCentroid &&
             wcscmp(loaded.deviceId,settings.deviceId) == 0 && loaded.profiles[0].baseScale[1] == 0.375 &&
             loaded.profiles[1].globalOffset == -0.125,"Unicode settings or separate profiles failed to round-trip.");
+        for(int mode = 0; mode < audio::ModeCount; ++mode) {
+            const auto &before = settings.profiles[mode], &after = loaded.profiles[mode];
+            Check(before.globalScale == after.globalScale && before.globalOffset == after.globalOffset,"Saved response mapping was replaced.");
+            for(int c = 0; c < 3; ++c)
+                Check(before.baseScale[c] == after.baseScale[c] && before.baseOffset[c] == after.baseOffset[c] &&
+                    before.peakScale[c] == after.peakScale[c] && before.peakOffset[c] == after.peakOffset[c],"Saved RGB mapping was replaced.");
+        }
         Check(loaded.responseSource == audio::BassEnergy && loaded.speedEnabled && loaded.spawnEnabled && !loaded.brightnessEnabled &&
             loaded.colorEnabled && loaded.sensitivity == 6.5 && loaded.smoothing == 0.625 && loaded.brightnessStrength == 0.8 &&
             loaded.speedStrength == 0.375 && loaded.spawnStrength == 0.125,"Independent response settings did not round-trip.");
@@ -70,7 +85,7 @@ int wmain() {
             WritePrivateProfileStringW(L"Reaction",nullptr,nullptr,file.c_str()),"Cannot create version 1 fixture.");
         Check(audio::Load(file.c_str(),loaded) == 0 && loaded.enabled && loaded.colorEnabled && !loaded.brightnessEnabled &&
             !loaded.speedEnabled && !loaded.spawnEnabled && loaded.smoothing == 0 && loaded.profiles[0].baseScale[1] == 0.375,
-            "Version 1 migration changed the original color effect or enabled new influences.");
+            "Version 1 migration changed saved mappings or enabled new influences.");
         Check(audio::Save(file.c_str(),settings) == 0,"Cannot restore version 2 fixture.");
         for(const auto bad : {L"nan",L"1.001",L"-0.1",L"0.5junk"}) {
             Check(WritePrivateProfileStringW(L"Reaction",L"SpeedStrength",bad,file.c_str()) != FALSE,"Cannot corrupt fixture.");
@@ -96,12 +111,42 @@ int wmain() {
         }
         auto invalid = settings; invalid.profiles[0].globalScale = std::numeric_limits<double>::quiet_NaN();
         Check(!audio::Valid(invalid) && audio::Save(file.c_str(),invalid) == ERROR_INVALID_DATA,"NaN settings accepted.");
-        unsigned char wave[576] = {};
-        Check(audio::CalculateWaveformVariation(wave) == 0,"Constant waveform was not silent.");
-        for(unsigned i = 0; i < 576; ++i) wave[i] = i%2 ? 255 : 0;
-        Check(audio::CalculateWaveformVariation(wave) == 1,"Waveform variation saturation changed.");
-        wave[0] = 255; std::fill(wave+1,wave+576,static_cast<unsigned char>(0));
-        Check(audio::CalculateWaveformVariation(wave) == 0,"Waveform variation integer division changed.");
+        // Zero-crossing regression: reducing amplitude must reduce the response at every frequency.
+        for(unsigned rate : {8000u,22050u,44100u,48000u,96000u,192000u}) for(unsigned channels : {1u,2u,6u}) {
+            for(double frequency : {80.0,1000.0,3000.0,8000.0}) {
+                if(frequency >= rate/2.0) continue;
+                const auto loud = Tone(rate,channels,frequency,0.5,true,audio::AnalyzeWaveform);
+                const auto quiet = Tone(rate,channels,frequency,0.05,true,audio::AnalyzeWaveform);
+                const auto tiny = Tone(rate,channels,frequency,1e-6,true,audio::AnalyzeWaveform);
+                Check(loud.waveformVariation > 0 && loud.waveformVariation <= 1 && loud.level == 0 && loud.spectralCentroid == 0,
+                    "Waveform-only analysis has an invalid response or runs unrelated analysis.");
+                Check(quiet.waveformVariation > tiny.waveformVariation && quiet.waveformVariation < loud.waveformVariation &&
+                    tiny.waveformVariation > 0 && tiny.waveformVariation < 0.0001,
+                    "Tiny zero crossings cause a false response or quantization loses amplitude changes.");
+                const auto inPhase = Tone(rate,channels,frequency,0.5,false,audio::AnalyzeWaveform);
+                Check(Near(inPhase.waveformVariation,loud.waveformVariation),"Waveform response depends on channel polarity.");
+            }
+            const auto reference = Tone(44100,channels,1000,0.5,false,audio::AnalyzeWaveform);
+            const auto native = Tone(rate,channels,1000,0.5,false,audio::AnalyzeWaveform);
+            Check(std::abs(native.waveformVariation/reference.waveformVariation-1) < 0.08,"Waveform reference spacing changed with the device sample rate.");
+            const auto shifted = Tone(rate,channels,1000,0.5,false,audio::AnalyzeWaveform,0.2);
+            Check(Near(shifted.waveformVariation,native.waveformVariation,1e-6),"A DC offset changed waveform variation.");
+            audio::Analyzer dcAnalyzer(Format(rate,channels),audio::AnalyzeWaveform);
+            std::vector<float> dcPacket(4096*channels,0.25f);
+            for(unsigned frames : {1u,7u,100u,4096u}) {
+                dcAnalyzer.Push(reinterpret_cast<const BYTE *>(dcPacket.data()),frames,false);
+                Check(dcAnalyzer.Analyze().waveformVariation == 0,"Startup padding or ring wrap turned DC into activity.");
+            }
+            dcAnalyzer.Reset(); dcAnalyzer.Push(nullptr,4096,true);
+            Check(dcAnalyzer.Analyze().waveformVariation == 0,"Silent packets left a waveform response.");
+        }
+        audio::Analyzer alternating(Format(44100,1),audio::AnalyzeWaveform);
+        std::vector<float> extremes(8192);
+        for(unsigned i = 0; i < extremes.size(); ++i) extremes[i] = i%2 ? 1.0f : -1.0f;
+        alternating.Push(reinterpret_cast<const BYTE *>(extremes.data()),static_cast<unsigned>(extremes.size()),false);
+        Check(alternating.Analyze().waveformVariation == 1,"Full-scale alternating PCM must define the waveform range.");
+        alternating.SetMask(0); alternating.SetMask(audio::AnalyzeWaveform);
+        Check(alternating.Analyze().waveformVariation == 0,"Switching waveform analysis reused stale samples.");
         for(unsigned rate : {22050u,44100u,48000u,96000u,192000u}) {
             for(unsigned channels : {1u,2u,6u}) {
                 const auto low = Tone(rate,channels,1000,0.5,true), high = Tone(rate,channels,4000,0.5,true);

@@ -43,6 +43,9 @@ int wmain() {
         Check(matrix->GetCoeffR1() == 1 && matrix->GetCoeffB0() == 0,"Disabled audio did not restore ordinary coefficients.");
         settings.enabled = TRUE; settings.mode = audio::SpectralCentroid;
         settings.colorEnabled = TRUE; settings.brightnessEnabled = FALSE; settings.smoothing = 0;
+        // A fixed custom mapping tests fractional transport independently of default profiles.
+        settings.profiles[1] = {};
+        for(int c = 0; c < 3; ++c) settings.profiles[1].peakScale[c] = 2;
         settings.profiles[1].globalScale = 0; settings.profiles[1].globalOffset = 0.25;
         settings.profiles[1].peakOffset[2] = 99;
         Check(host->preview(host->context,&settings) == 0 && WaitFor(*host,audio::Capturing),"Cannot start default loopback.");

@@ -6,6 +6,7 @@
 #include <commctrl.h>
 #include <dlgs.h>
 #include <cstdio>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <stdexcept>
@@ -59,6 +60,21 @@ static void Capture(HWND window, const wchar_t *name) {
     SelectObject(memory, previous); DeleteObject(bitmap); DeleteDC(memory); ReleaseDC(window, dc);
 }
 static void Click(HWND window, int id) { SendMessageW(GetDlgItem(window,id), BM_CLICK, 0, 0); }
+static void CheckAudioOffsetSlider(HWND window) {
+    const HWND slider = GetDlgItem(window,IDC_AUDIO_NUMBER+7+SLIDER_OFFSET);
+    const int minimum = static_cast<int>(SendMessageW(slider,TBM_GETRANGEMIN,0,0));
+    const int maximum = static_cast<int>(SendMessageW(slider,TBM_GETRANGEMAX,0,0));
+    const int position = static_cast<int>(SendMessageW(slider,TBM_GETPOS,0,0));
+    const double value = audioCurrent.profiles[audioCurrent.mode].globalOffset*100;
+    Check(minimum == -500 && maximum == 500 && position == std::lround(value),"Global offset slider range or position disagrees with settings.");
+    RECT thumb = {}, channel = {};
+    SendMessageW(slider,TBM_GETTHUMBRECT,0,reinterpret_cast<LPARAM>(&thumb));
+    SendMessageW(slider,TBM_GETCHANNELRECT,0,reinterpret_cast<LPARAM>(&channel));
+    const double expected = channel.left+double(position-minimum)*(channel.right-channel.left)/(maximum-minimum);
+    // The channel includes end caps; allow half a thumb of layout/theme padding.
+    Check(std::abs((thumb.left+thumb.right)/2.0-expected) <= (thumb.right-thumb.left)/2.0+2,
+        "Global offset thumb is drawn at a stale position despite a correct numeric value.");
+}
 static void Select(HWND window, int id, int item) {
     SendDlgItemMessageW(window,id,CB_SETCURSEL,item,0);
     SendMessageW(window,WM_COMMAND,MAKEWPARAM(id,CBN_SELCHANGE),reinterpret_cast<LPARAM>(GetDlgItem(window,id)));
@@ -137,12 +153,14 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
             Click(window,accepted ? IDOK : IDCANCEL);
         } else if(GetDlgItem(window,IDC_AUDIO_ENABLED)) {
             Check(testingAudio,"Unexpected audio editor.");
+            CheckAudioOffsetSlider(window);
             Capture(window,L"audio-defaults");
             Click(window,IDC_AUDIO_ENABLED);
             Check(audioCurrent.enabled != FALSE,"Audio enable preview failed.");
             Check(audioCurrent.brightnessEnabled && !audioCurrent.speedEnabled && !audioCurrent.spawnEnabled && !audioCurrent.colorEnabled,
                 "New audio defaults must preserve the palette and leave motion opt-in.");
-            Check(!IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_NUMBER)) && !IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_REACTION_NUMBER+3)),
+            Check(!IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_NUMBER)) && !IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_RESET)) &&
+                !IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_REACTION_NUMBER+3)),
                 "Disabled effects exposed active strength controls.");
             Click(window,IDC_AUDIO_BRIGHTNESS); Click(window,IDC_AUDIO_SPEED);
             SetDlgItemTextW(window,IDC_AUDIO_REACTION_NUMBER+3,L"62.5");
@@ -162,18 +180,47 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
                 audioCurrent.sensitivity == 5.5 && audioCurrent.smoothing == 0.75,"Response controls did not preview.");
             Click(window,IDC_AUDIO_COLOR);
             Check(IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_NUMBER)),"Color mapping controls remained disabled.");
+            for(const auto value : {L"-500",L"-12.5",L"0",L"12.5",L"500",L"0"}) {
+                SetDlgItemTextW(window,IDC_AUDIO_NUMBER+7,value);
+                CheckAudioOffsetSlider(window);
+            }
+            Capture(window,L"audio-zero-offset");
+            const HWND offsetSlider = GetDlgItem(window,IDC_AUDIO_NUMBER+7+SLIDER_OFFSET);
+            SendMessageW(offsetSlider,TBM_SETPOS,TRUE,-125);
+            SendMessageW(window,WM_HSCROLL,TB_THUMBPOSITION,reinterpret_cast<LPARAM>(offsetSlider));
+            Check(audioCurrent.profiles[audio::WaveformVariation].globalOffset == -1.25,"Dragging the offset slider lost its sign.");
+            CheckAudioOffsetSlider(window);
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"37.5");
             Check(audioCurrent.profiles[audio::WaveformVariation].baseScale[0] == 0.375,"Fractional audio percentage lost.");
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"NaN");
             Check(audioCurrent.profiles[audio::WaveformVariation].baseScale[0] == 0.375,"Invalid audio edit applied.");
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"37.5");
             Select(window,IDC_AUDIO_MODE,audio::SpectralCentroid);
+            CheckAudioOffsetSlider(window);
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER+6,L"650");
             SetDlgItemTextW(window,IDC_AUDIO_NUMBER+7,L"-12.5");
             Check(audioCurrent.profiles[audio::SpectralCentroid].globalScale == 6.5 && audioCurrent.profiles[audio::SpectralCentroid].globalOffset == -0.125,"Global audio mapping preview failed.");
             Select(window,IDC_AUDIO_MODE,audio::WaveformVariation);
+            CheckAudioOffsetSlider(window);
             Check(audioCurrent.profiles[audio::WaveformVariation].baseScale[0] == 0.375 && audioCurrent.profiles[audio::WaveformVariation].globalScale == 3,"Switching effects mixed their settings.");
+            SetDlgItemTextW(window,IDC_AUDIO_NUMBER,L"NaN");
+            Click(window,IDC_AUDIO_RESET);
+            CheckAudioOffsetSlider(window);
+            const auto &reset = audioCurrent.profiles[audio::WaveformVariation];
+            Check(reset.baseScale[0] == 0 && reset.peakScale[0] == 2 && reset.baseOffset[0] == 0 &&
+                reset.baseOffset[1] == 64 && reset.baseOffset[2] == 128 && reset.peakOffset[0] == 128 &&
+                reset.peakOffset[1] == 255 && reset.peakOffset[2] == 255 && reset.globalScale == 3 && reset.globalOffset == -0.3 &&
+                audioCurrent.profiles[audio::SpectralCentroid].globalScale == 6.5 && audioCurrent.profiles[audio::SpectralCentroid].globalOffset == -0.125,
+                "Reset effect did not replace an invalid edit or reset the wrong profile.");
+            Capture(window,L"audio-reset");
             Select(window,IDC_AUDIO_MODE,audio::SpectralCentroid);
+            Click(window,IDC_AUDIO_RESET);
+            CheckAudioOffsetSlider(window);
+            Check(audioCurrent.profiles[audio::SpectralCentroid].globalScale == 5 && audioCurrent.profiles[audio::SpectralCentroid].baseOffset[0] == 0 &&
+                audioCurrent.sensitivity == 5.5 && audioCurrent.smoothing == 0.75 && audioCurrent.spawnStrength == 0.4 &&
+                audioCurrent.speedStrength == 0.625 && audioCurrent.responseSource == audio::BassEnergy &&
+                !audioCurrent.brightnessEnabled && !audioCurrent.speedEnabled && audioCurrent.spawnEnabled && audioCurrent.colorEnabled,
+                "Reset effect changed independent response settings.");
             Capture(window,L"audio");
             Click(window,audioCase == 0 ? IDCANCEL : IDOK);
         } else if(testingAudio && audioCase == 3) {
@@ -282,12 +329,18 @@ int wmain(int argc,wchar_t **argv) {
             "An incompatible settings ABI was accepted.");
         for(audioCase = 0; audioCase < 4; ++audioCase) {
             audioCurrent = audioSaved = audio::Defaults(); audioCommits = 0;
+            const double initialOffsets[] = {0,-0.3,0.125,0};
+            audioCurrent.profiles[0].globalOffset = audioSaved.profiles[0].globalOffset = initialOffsets[audioCase];
+            audioCurrent.profiles[0].baseOffset[0] = audioSaved.profiles[0].baseOffset[0] = 7;
+            audioCurrent.profiles[1].baseOffset[0] = audioSaved.profiles[1].baseOffset[0] = 11;
             const bool shouldAccept = audioCase == 0 || audioCase == 2;
             Check((configureWithAudio(matrix,refresh,priority,&audioHost) != 0) == shouldAccept && !failed,"Audio dialog integration failed.");
             Check((audioCurrent.enabled != FALSE) == (audioCase == 2),"Parent Cancel failed to restore the original audio settings.");
             Check((audioSaved.enabled != FALSE) == (audioCase == 2),"Audio preview or Cancel unexpectedly persisted settings.");
             Check(audioCommits == (audioCase >= 2 ? 1 : 0),"Audio persisted before the parent accepted.");
             for(const auto &state : {audioCurrent,audioSaved}) {
+                Check(state.profiles[0].baseOffset[0] == (audioCase == 2 ? 0 : 7) && state.profiles[1].baseOffset[0] == (audioCase == 2 ? 0 : 11),
+                    "Reset effect did not follow child/parent OK, Cancel or save failure.");
                 Check((state.spawnEnabled != FALSE) == (audioCase == 2) && (state.colorEnabled != FALSE) == (audioCase == 2) &&
                     (state.brightnessEnabled != FALSE) == (audioCase != 2),"New influence switches were not restored/persisted together.");
                 Check(state.speedStrength == (audioCase == 2 ? 0.625 : 0.35) && state.sensitivity == (audioCase == 2 ? 5.5 : 4) &&

@@ -45,11 +45,6 @@ float PcmFormat::Sample(const BYTE *data) const {
     }
     return std::isfinite(value) ? static_cast<float>(std::clamp(value,-1.0,1.0)) : 0.0f;
 }
-double CalculateWaveformVariation(const unsigned char *samples) {
-    unsigned total = 0;
-    for(unsigned i = 1; i < 576; ++i) total += std::abs(int(samples[i])-int(samples[i-1]));
-    return std::min(total/288,255u)/255.0;
-}
 Analyzer::Analyzer(const PcmFormat &format, unsigned mask) : format_(format) {
     dcRate_ = 1-std::exp(-6.283185307179586*20/format.rate);
     bassRate_ = 1-std::exp(-6.283185307179586*200/format.rate);
@@ -146,15 +141,19 @@ Descriptors Analyzer::Analyze() {
     constexpr unsigned size = 2048;
     for(unsigned c = 0; c < format_.channels; ++c) {
         if(mask_ & AnalyzeWaveform) {
-            unsigned char waveform[576];
-            // A fixed 44.1 kHz reference keeps waveform variation independent of endpoint rate.
-            // Winamp waveform bytes contain signed 8-bit PCM in an unsigned array.
-            // Preserve the original Winamp VU effect's unsigned differences and zero-crossing jumps.
-            // See WACUP/vis_classic, Vis_Satan.cpp, AtAnStDirectRender.
-            for(unsigned i = 0; i < 576; ++i)
-                waveform[i] = static_cast<unsigned char>(static_cast<int>(std::clamp(
-                    std::floor(128.0*At(c,(575-i)*format_.rate/44100.0)),-128.0,127.0)));
-            result.waveformVariation += CalculateWaveformVariation(waveform)/format_.channels;
+            // Compare signed PCM at a fixed 44.1 kHz reference spacing. Retain fractional
+            // samples: byte quantization makes tiny zero crossings look like large jumps.
+            // Use only available history so startup padding cannot turn DC into activity.
+            const unsigned count = available_ ? std::min(576u,1+(available_-1)*44100/format_.rate) : 0;
+            if(count > 1) {
+                double previous = At(c,0), total = 0;
+                for(unsigned i = 1; i < count; ++i) {
+                    const double sample = At(c,double(i)*format_.rate/44100);
+                    total += std::abs(sample-previous); previous = sample;
+                }
+                // Full-scale PCM spans -1..1, so the maximum adjacent difference is 2.
+                result.waveformVariation += total/(2*(count-1)*format_.channels);
+            }
         }
         if(!(mask_ & AnalyzeCentroid)) continue;
         for(unsigned i = 0; i < size; ++i)
@@ -169,6 +168,14 @@ Descriptors Analyzer::Analyze() {
             const double value = std::abs(spectrum_[i]);
             weighted += frequency/11025*value; magnitude += value;
         }
+    }
+    if(mask_ & AnalyzeWaveform) {
+        // A raw difference of 0.02 is a useful musical midpoint, far below alternating
+        // full-scale PCM. Expand that range without a running peak or a hard gain clip.
+        // The fixed curve preserves 0 and 1; apply it once after averaging channels.
+        constexpr double knee = 0.02;
+        const double variation = result.waveformVariation;
+        result.waveformVariation = (1+knee)*variation/(variation+knee);
     }
     result.spectralCentroid = magnitude > 1e-8 ? weighted/magnitude : 0;
     return result;

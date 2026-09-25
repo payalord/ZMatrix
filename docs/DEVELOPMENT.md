@@ -74,12 +74,25 @@ includes all samples between analysis updates, not only the last FFT window.
 Bass uses per-channel DC rejection and two low-pass stages around 200 Hz;
 opposite-phase channels do not cancel. Brightness scales RGB equally within
 the chosen palette. A soft RMS silence gate returns level-based effects to
-ordinary appearance and motion. Color modulation retains the legacy mappings,
-including their Base values in silence.
+ordinary appearance and motion. Color modulation applies the saved mappings,
+including their Base values in silence. The original color profiles are retained,
+including their strong Peak scales and offsets. Saved/imported profiles are
+never silently replaced; Reset effect
+previews defaults for only the selected mapping through the usual rollback path.
 
 The worker analyzes roughly every 50 ms. Level-only analysis needs no sample
 ring or FFT storage. Bass adds three filter values per channel. Waveform
-variation uses the sample ring; spectral centroid additionally uses a reused
+variation uses the sample ring and half the mean absolute difference `v` of up to
+576 signed floating-point samples at 44.1 kHz reference spacing. After averaging
+channels, a fixed curve `1.02 * v / (v + 0.02)` expands the musical range while
+preserving the 0 and 1 endpoints. With the original Global scale 3 and offset
+-0.3, raw differences around 0.0022..0.0148 span Base to Peak. The curve has no
+running peak or adaptive gain, so a loud passage cannot suppress later input.
+Near-silent differences approach zero continuously. Linear
+interpolation provides approximate sample-rate consistency. Only available
+history is used, avoiding artificial startup differences against zero padding.
+There is no byte quantization, unsigned zero-crossing wrap, temporary waveform
+array or FFT for this effect. Spectral centroid additionally uses a reused
 2048-point FFT buffer and cached Hann window/stage coefficients. Disabled
 analyses do not run, and unneeded buffers are released when the mask changes.
 Capture stops when no influence is active. No PCM is written to disk.
@@ -92,15 +105,18 @@ special strings and cleanup. There are no new rendering surfaces or per-stream
 allocations. Normal multipliers retain the original single-update behavior.
 
 Audio.cfg version 2 stores each influence and its amount separately. Version 1
-loads with only legacy Color modulation enabled and no smoothing, preserving
-existing appearance. The executable/Config.dll host contract is version 2;
+loads with only Color modulation enabled and no smoothing, preserving saved
+parameters. The corrected waveform calculation applies to every settings
+version; exact reproduction of the old Winamp waveform response is not retained.
+The executable/Config.dll host contract is version 2;
 reject other versions before copying Settings or Status structures. The five
 original Config exports and all existing COM interface vtables are unchanged.
 
 `AudioTests`, `AudioResponseTests`, `AudioRuntimeTests`, `ConfigDialogs` and
 `BlendStrengthTests` cover persistence/migration, analysis, independent effects,
 envelopes, endpoint failure, preview rollback and motion rendering. The response
-test links AudioSettings.cpp and AudioResponse.cpp; runtime tests also need
+test links AudioSettings.cpp, AudioAnalysis.cpp and AudioResponse.cpp and covers
+the original profile over repeated PCM sequences; runtime tests also need
 AudioAnalysis.cpp, AudioCapture.cpp and AudioRuntime.cpp. Keep test output
 outside source directories. AudioCaptureSmoke's test tone is explicitly opt-in.
 

@@ -188,6 +188,7 @@ BEGIN
     AUTOCHECKBOX "&Color modulation (changes the palette)", IDC_AUDIO_COLOR, 206, 57, 370, 12
     LTEXT "Effect", -1, 206, 82, 36, 12
     COMBOBOX IDC_AUDIO_MODE, 245, 78, 169, 70, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "Reset &effect", IDC_AUDIO_RESET, 482, 77, 108, 18
     LTEXT "", IDC_AUDIO_DESCRIPTION, 206, 101, 384, 24
     GROUPBOX "Base (response = 0)", -1, 206, 128, 188, 107
     GROUPBOX "Peak (response = 100%)", -1, 402, 128, 188, 107

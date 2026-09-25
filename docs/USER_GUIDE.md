@@ -181,8 +181,11 @@ strengths are usually more suitable for a desktop background.
 
 ### Color modulation
 
-Waveform variation reacts to differences between adjacent audio samples. Both
-level and frequency affect it; it is not simply a volume meter.
+Waveform variation reacts to changes between signed audio samples. Both level
+and frequency affect it; it is not simply a volume meter. Lowering a signal's
+amplitude lowers its response, including very quiet signals near zero.
+The response uses a fixed curve to give ordinary audio a useful color range;
+it does not automatically turn down sensitivity after a loud passage.
 
 Spectral centroid reacts to the balance of frequencies. Higher-frequency
 content increases the response; it is not a beat detector.
@@ -192,6 +195,23 @@ Each effect has its own color mapping. Base describes the mapping at response
 color channels. Offset adds an RGB color. Between Base and Peak, the mapping
 changes gradually with the response. Strong scales and offsets can saturate
 channels and produce colors quite different from the ordinary green palette.
+
+The original default profiles are retained. Waveform variation starts with a
+dark blue Base and uses strong RGB scales and offsets at Peak. Spectral centroid
+scales from black to twice the selected colors. These profiles can saturate
+channels at strong responses. Brightness and wallpaper blending also affect
+the final result.
+Reset effect restores only the selected effect's color mapping and global
+scale/offset; it leaves the other effect, output, Smoothness and level/motion
+settings unchanged. Reset is previewed immediately; Cancel restores the previous
+settings, and the enclosing Configuration dialog must be accepted to save it.
+
+Existing and imported color mappings are kept as saved. Use Reset effect to
+restore the complete original profile, including offsets and the global response
+range; changing only Base/Peak percentages does not restore the entire profile.
+Waveform variation now uses signed fractional samples instead of the original
+Winamp byte calculation, so its response changes even with an existing mapping.
+It no longer produces large false responses from tiny zero crossings.
 
 Global scale (%) multiplies the measured response. Global offset (%) shifts
 it, and the result is limited to 0%-100%. These settings control how quickly
@@ -219,9 +239,10 @@ not install or require Winamp. Import enables Color modulation but leaves the
 master capture switch and other influences unchanged. Old section names remain
 for compatibility; current playback capture is built into ZMatrix.
 
-Existing Audio.cfg version 1 files retain their previous color behavior when
+Existing Audio.cfg version 1 files retain their saved color mappings when
 loaded: Color modulation is selected, the three new influences are off, and
-Smoothness is 0%. They are saved in version 2 format when settings are accepted.
+Smoothness is 0%. The corrected waveform analysis still applies. They are saved
+in version 2 format when settings are accepted.
 
 ## Saving, loading and resetting settings
 

@@ -97,7 +97,7 @@ DWORD Load(const wchar_t *path, Settings &settings, bool legacy) {
             if(device.size() >= _countof(next.deviceId)) return ERROR_INVALID_DATA;
             wcscpy_s(next.deviceId, device.c_str());
             if(version == L"1") {
-                // Preserve the appearance of an existing installation until the user opts in.
+                // Preserve saved mappings and switches; corrected waveform analysis applies to all versions.
                 next.brightnessEnabled = FALSE; next.colorEnabled = TRUE; next.smoothing = 0;
             } else {
                 const auto source = Value(path,L"Reaction",L"Source");

@@ -16,11 +16,11 @@ struct PcmFormat {
     float Sample(const BYTE *data) const;
 };
 // RMS values use full-scale PCM; spectralCentroid is relative to 11.025 kHz.
+// waveformVariation uses signed differences at 44.1 kHz reference spacing,
+// followed by a fixed 0..1 curve calibrated for the existing color mappings.
 struct Descriptors { double waveformVariation = 0, spectralCentroid = 0, level = 0, bass = 0; };
 enum AnalysisMask { AnalyzeWaveform = 1, AnalyzeCentroid = 2, AnalyzeLevel = 4, AnalyzeBass = 8,
     AnalyzeLegacy = AnalyzeWaveform | AnalyzeCentroid, AnalyzeAll = AnalyzeLegacy | AnalyzeLevel | AnalyzeBass };
-// Preserves the original Winamp VU effect: 576 samples with integer division.
-double CalculateWaveformVariation(const unsigned char *samples);
 class Analyzer {
 public:
     explicit Analyzer(const PcmFormat &format, unsigned mask = AnalyzeLegacy);

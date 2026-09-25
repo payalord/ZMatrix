@@ -1,5 +1,5 @@
 // Deterministic envelopes and independent audio influences; no device or windows required.
-// Build with AudioSettings.cpp and AudioResponse.cpp.
+// Build with AudioSettings.cpp, AudioAnalysis.cpp and AudioResponse.cpp.
 #include "../Audio/AudioResponse.h"
 #include <cmath>
 #include <cstdio>
@@ -14,6 +14,70 @@ static audio::Reaction Settle(audio::Response &response, const audio::Settings &
     audio::Reaction result;
     for(int i = 0; i < frames; ++i) result = response.Update(settings,signal,true,dt);
     return result;
+}
+static void CheckWaveformPipeline() {
+    WAVEFORMATEX wave = {};
+    wave.wFormatTag = WAVE_FORMAT_IEEE_FLOAT; wave.nChannels = 2; wave.nSamplesPerSec = 48000;
+    wave.wBitsPerSample = 32; wave.nBlockAlign = 8; wave.nAvgBytesPerSec = 384000;
+    audio::PcmFormat format; Check(format.Read(wave),"Cannot create waveform test format.");
+    auto tone = [](double frequency, double amplitude) {
+        std::vector<float> samples(4800);
+        for(unsigned i = 0; i < 2400; ++i) {
+            samples[2*i] = static_cast<float>(amplitude*std::sin(6.283185307179586*frequency*i/48000));
+            samples[2*i+1] = -samples[2*i];
+        }
+        return samples;
+    };
+    const auto tiny = tone(3000,1e-6), quiet = tone(80,0.04), middle = tone(1000,0.2), loud = tone(3000,0.5);
+    const std::vector<float> silence(4800,0);
+    auto settings = audio::Defaults(); settings.enabled = settings.colorEnabled = TRUE;
+    settings.brightnessEnabled = FALSE; settings.smoothing = 0.2;
+    // The complete profile used before the signed-PCM fix, including its response threshold.
+    auto &profile = settings.profiles[audio::WaveformVariation]; profile = {};
+    for(int c = 0; c < 3; ++c) profile.peakScale[c] = 2;
+    profile.baseOffset[1] = 64; profile.baseOffset[2] = 128;
+    profile.peakOffset[0] = 128; profile.peakOffset[1] = profile.peakOffset[2] = 255;
+    profile.globalScale = 3; profile.globalOffset = -0.3;
+    audio::Analyzer analyzer(format,audio::RequiredAnalysis(settings)); audio::Response response;
+    auto feed = [&](const std::vector<float> &samples) {
+        audio::Reaction result;
+        for(int i = 0; i < 200; ++i) {
+            analyzer.Push(reinterpret_cast<const BYTE *>(samples.data()),2400,false);
+            result = response.Update(settings,analyzer.Analyze(),true,0.05);
+        }
+        return result;
+    };
+    const auto base = feed(tiny), intermediate = feed(middle), peak = feed(loud);
+    Check(base.colors.scale[0] == 0 && base.colors.offset[1] == 64,"Tiny zero crossings activated the old color profile.");
+    Check(intermediate.colors.scale[0] > 0.8 && intermediate.colors.scale[0] < 1.8,
+        "Moderate waveform input is trapped at Base or clipped to Peak with the old profile.");
+    Check(peak.colors.scale[0] == 2 && peak.colors.offset[1] == 255,"Strong waveform input cannot reach the old Peak.");
+    settings.brightnessEnabled = settings.speedEnabled = TRUE;
+    settings.brightnessStrength = 0.9; settings.speedStrength = 0.3; settings.sensitivity = 4;
+    auto same = [](const audio::Reaction &a, const audio::Reaction &b) {
+        Check(std::abs(a.speed-b.speed) < 1e-5 && std::abs(a.spawn-b.spawn) < 1e-5,"Motion response drifted over repeated sound sequences.");
+        for(int c = 0; c < 3; ++c)
+            Check(std::abs(a.colors.scale[c]-b.colors.scale[c]) < 1e-5 && std::abs(a.colors.offset[c]-b.colors.offset[c]) < 1e-5,
+                "Color response depends on previous loud passages or accumulated runtime.");
+    };
+    const std::vector<float> *sequence[] = {&middle,&loud,&quiet,&silence,&middle};
+    for(UINT source = 0; source < audio::SourceCount; ++source) {
+        settings.responseSource = source; analyzer.SetMask(audio::RequiredAnalysis(settings)); response.Reset();
+        audio::Reaction reference[5];
+        // Ten simulated minutes per source, with no reset between passages or cycles.
+        for(int cycle = 0; cycle < 12; ++cycle) {
+            for(int stage = 0; stage < 5; ++stage) {
+                const auto current = feed(*sequence[stage]);
+                if(cycle == 0) reference[stage] = current;
+                else same(current,reference[stage]);
+                if(stage == 4) same(current,reference[0]);
+            }
+        }
+        Check(reference[1].colors.scale[0] > 0.6,"Brightness suppressed the recovered waveform Peak.");
+    }
+    const auto beforeDisable = feed(middle);
+    settings.enabled = FALSE; Check(Neutral(feed(loud)),"Disabled audio retained calibrated colors.");
+    settings.enabled = TRUE; same(feed(middle),beforeDisable);
 }
 int main() {
     try {
@@ -75,7 +139,8 @@ int main() {
         }
         settings.colorEnabled = FALSE;
         Check(Neutral(response.Update(settings,sound,true,0.02)),"Turning off the final effect left coefficients active.");
-        puts("PASS: Independent audio influences, hue preservation, level/bass, time-based envelopes, silence, failure, zero strength and legacy color compatibility.");
+        CheckWaveformPipeline();
+        puts("PASS: Independent effects, time-based envelopes, silence/failure, old-profile PCM calibration and 20 simulated minutes without response drift.");
         return 0;
     } catch(const std::exception &error) { fprintf(stderr,"FAIL: %s\n",error.what()); return 1; }
 }

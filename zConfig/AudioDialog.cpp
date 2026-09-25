@@ -58,7 +58,7 @@ struct AudioEditor {
             EnableWindow(GetDlgItem(window,IDC_AUDIO_NUMBER+i),settings.colorEnabled);
             EnableWindow(GetDlgItem(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET),settings.colorEnabled);
         }
-        for(int id : {IDC_AUDIO_MODE,IDC_AUDIO_BASE_COLOR,IDC_AUDIO_PEAK_COLOR,IDC_AUDIO_DESCRIPTION})
+        for(int id : {IDC_AUDIO_MODE,IDC_AUDIO_BASE_COLOR,IDC_AUDIO_PEAK_COLOR,IDC_AUDIO_DESCRIPTION,IDC_AUDIO_RESET})
             EnableWindow(GetDlgItem(window,id),settings.colorEnabled);
         const auto &m = settings.profiles[settings.mode];
         for(int i = 0; i < 2; ++i) {
@@ -67,7 +67,7 @@ struct AudioEditor {
             SetDlgItemTextW(window,i ? IDC_AUDIO_PEAK_COLOR : IDC_AUDIO_BASE_COLOR,label);
         }
         SetDlgItemTextW(window,IDC_AUDIO_DESCRIPTION,settings.mode == audio::WaveformVariation ?
-            L"Waveform variation reacts to differences between adjacent samples (both level and frequency)." :
+            L"Follows waveform changes: stronger sound and higher frequencies increase the response." :
             L"Spectral centroid reacts to the balance of frequencies: higher frequencies increase the response.");
         updating = false;
     }
@@ -176,7 +176,8 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
             }
             for(int i = 0; i < 8; ++i) {
                 SendDlgItemMessageW(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET,TBM_SETRANGEMIN,FALSE,i == 7 ? -500 : 0);
-                SendDlgItemMessageW(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET,TBM_SETRANGEMAX,FALSE,i == 7 ? 500 : i == 6 ? 2000 : 1000);
+                // Refresh thumb geometry even when the initial position stays at zero.
+                SendDlgItemMessageW(window,IDC_AUDIO_NUMBER+i+SLIDER_OFFSET,TBM_SETRANGEMAX,TRUE,i == 7 ? 500 : i == 6 ? 2000 : 1000);
                 SendDlgItemMessageW(window,IDC_AUDIO_NUMBER+i,EM_SETLIMITTEXT,32,0);
             }
             context->Devices(window); context->Populate(window); context->Status(window);
@@ -220,6 +221,8 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
             wcscpy_s(context->settings.deviceId,device.id.c_str());
         } else if(code == BN_CLICKED && id == IDC_AUDIO_ENABLED) {
             context->settings.enabled = IsDlgButtonChecked(window,id) == BST_CHECKED;
+        } else if(code == BN_CLICKED && id == IDC_AUDIO_RESET) {
+            context->settings.profiles[context->settings.mode] = audio::Defaults().profiles[context->settings.mode];
         } else if(code == BN_CLICKED && id == IDC_AUDIO_REFRESH) { context->Devices(window); return TRUE; }
         else if(code == BN_CLICKED && id == IDC_AUDIO_IMPORT) { ImportLegacyWinampSettings(window,*context); return TRUE; }
         else if(code == BN_CLICKED && (id == IDC_AUDIO_BASE_COLOR || id == IDC_AUDIO_PEAK_COLOR)) {
