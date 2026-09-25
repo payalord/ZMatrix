@@ -1273,6 +1273,10 @@ void zsMatrix::UpdateTarget(HWND hWnd,HBITMAP BGBitmap)
 		PrintError("Failed to delete the temp space bitmap");
 	else
 		this->hTempSpaceBitmap = NULL;
+	if ((this->hBGDC != NULL) && (0 == DeleteDC(this->hBGDC)))
+		PrintError("Failed to delete the BG DC");
+	else
+		this->hBGDC = NULL;
 	if ((this->hBGBitmap != NULL) && (0 == DeleteObject(this->hBGBitmap)))
 		PrintError("Failed to delete the BG bitmap");
 	else

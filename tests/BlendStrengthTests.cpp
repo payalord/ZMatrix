@@ -207,6 +207,19 @@ static void CheckArithmeticColors(HWND window) {
         Check(GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS)+2==objects,"Returning to a legacy mode retained the blend workspace.");
     }
 }
+static void CheckTargetResources(HWND window) {
+    Surface background(128,96); background.Fill(0x314159);
+    Engine engine(L".\\zsMatrix.dll");
+    SelectObject(background.dc,background.previous);
+    engine.matrix->UpdateTarget(window,background.bitmap);
+    GdiFlush();
+    const DWORD objects=GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS);
+    for(int i=0;i<80;++i) engine.matrix->UpdateTarget(window,background.bitmap);
+    GdiFlush();
+    Check(GetGuiResources(GetCurrentProcess(),GR_GDIOBJECTS)==objects,"UpdateTarget leaked GDI objects.");
+    SelectObject(background.dc,background.bitmap);
+}
+
 int wmain(int argc,wchar_t **argv) {
     CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
     const int width=128,height=96;
@@ -317,6 +330,7 @@ int wmain(int argc,wchar_t **argv) {
         }
         CheckArithmeticColors(window);
         CheckAudioMotion(window);
+        CheckTargetResources(window);
         puts("PASS: Legacy rendering, all six blend modes, known RGB fixtures, tiled large glyphs, antialiasing/glow, black/solid startup, strength endpoints/interpolation, idle frames/trails, cleanup, off-screen glyphs, text opacity, special strings, audio, clipping/origin, copies, resize and bounded GDI objects.");
     } catch(const std::exception &error) { fprintf(stderr,"FAIL: %s\n",error.what()); result=1; }
     if(window) DestroyWindow(window);
