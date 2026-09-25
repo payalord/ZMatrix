@@ -231,8 +231,8 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
             CheckAudioOffsetSlider(window);
             const auto &reset = audioCurrent.profiles[audio::WaveformVariation];
             Check(reset.baseScale[0] == 0 && reset.peakScale[0] == 2 && reset.baseOffset[0] == 0 &&
-                reset.baseOffset[1] == 64 && reset.baseOffset[2] == 128 && reset.peakOffset[0] == 128 &&
-                reset.peakOffset[1] == 255 && reset.peakOffset[2] == 255 && reset.globalScale == 3 && reset.globalOffset == -0.3 &&
+                reset.baseOffset[1] == 0 && reset.baseOffset[2] == 0 && reset.peakOffset[0] == 0 &&
+                reset.peakOffset[1] == 24 && reset.peakOffset[2] == 48 && reset.globalScale == 3 && reset.globalOffset == -0.3 &&
                 audioCurrent.profiles[audio::SpectralCentroid].globalScale == 6.5 && audioCurrent.profiles[audio::SpectralCentroid].globalOffset == -0.125,
                 "Reset effect did not replace an invalid edit or reset the wrong profile.");
             Capture(window,L"audio-reset");

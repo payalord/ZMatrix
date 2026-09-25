@@ -16,8 +16,7 @@ Settings Defaults() {
     auto &variation = s.profiles[WaveformVariation];
     auto &centroid = s.profiles[SpectralCentroid];
     for(int c = 0; c < 3; ++c) variation.peakScale[c] = centroid.peakScale[c] = 2;
-    variation.baseOffset[1] = 64; variation.baseOffset[2] = 128;
-    variation.peakOffset[0] = 128; variation.peakOffset[1] = variation.peakOffset[2] = 255;
+    variation.peakOffset[1] = 24; variation.peakOffset[2] = 48;
     variation.globalScale = 3; variation.globalOffset = -0.3;
     centroid.globalScale = 5;
     s.sensitivity = 4; s.smoothing = 0.5;

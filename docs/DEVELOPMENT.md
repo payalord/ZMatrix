@@ -75,10 +75,11 @@ Bass uses per-channel DC rejection and two low-pass stages around 200 Hz;
 opposite-phase channels do not cancel. Brightness scales RGB equally within
 the chosen palette. A soft RMS silence gate returns level-based effects to
 ordinary appearance and motion. Color modulation applies the saved mappings,
-including their Base values in silence. The original color profiles are retained,
-including their strong Peak scales and offsets. Saved/imported profiles are
-never silently replaced; Reset effect
-previews defaults for only the selected mapping through the usual rollback path.
+including their Base values in silence. Default RGB scales remain 0 at Base and
+2 at Peak. Waveform offsets default to (0, 0, 0) at Base and (0, 24, 48) at Peak;
+centroid offsets remain zero. The original global response ranges are retained.
+Saved/imported profiles are never silently replaced; Reset effect previews
+defaults for only the selected mapping through the usual rollback path.
 
 The worker analyzes roughly every 50 ms. Level-only analysis needs no sample
 ring or FFT storage. Bass adds three filter values per channel. Waveform

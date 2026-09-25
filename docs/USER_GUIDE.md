@@ -218,18 +218,20 @@ color channels. Offset adds an RGB color. Between Base and Peak, the mapping
 changes gradually with the response. Strong scales and offsets can saturate
 channels and produce colors quite different from the ordinary green palette.
 
-The original default profiles are retained. Waveform variation starts with a
-dark blue Base and uses strong RGB scales and offsets at Peak. Spectral centroid
-scales from black to twice the selected colors. These profiles can saturate
-channels at strong responses. Brightness and wallpaper blending also affect
-the final result.
+Both default profiles scale RGB from 0% at Base to 200% at Peak. Waveform
+variation uses Offset RGB (0, 0, 0) at Base and (0, 24, 48) at Peak. This modest
+addition keeps more of the selected palette than the original strong offsets.
+Spectral centroid uses zero offsets at both ends, adding no color of its own.
+Offset is added to the scaled symbol color; it is not the final symbol color.
+Both profiles can saturate channels at strong responses. Brightness and
+wallpaper blending also affect the final result.
 Reset effect restores only the selected effect's color mapping and global
 scale/offset; it leaves the other effect, output, Smoothness and level/motion
 settings unchanged. Reset is previewed immediately; Cancel restores the previous
 settings, and the enclosing Configuration dialog must be accepted to save it.
 
 Existing and imported color mappings are kept as saved. Use Reset effect to
-restore the complete original profile, including offsets and the global response
+restore the complete current default profile, including offsets and the global response
 range; changing only Base/Peak percentages does not restore the entire profile.
 Waveform variation now uses signed fractional samples instead of the original
 Winamp byte calculation, so its response changes even with an existing mapping.

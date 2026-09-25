@@ -51,10 +51,10 @@ int wmain() {
             Check(waveform.baseScale[c] == 0 && waveform.peakScale[c] == 2 &&
                 centroid.baseScale[c] == 0 && centroid.peakScale[c] == 2 &&
                 centroid.baseOffset[c] == 0 && centroid.peakOffset[c] == 0,"Original color scales or centroid offsets changed.");
-        Check(waveform.baseOffset[0] == 0 && waveform.baseOffset[1] == 64 && waveform.baseOffset[2] == 128 &&
-            waveform.peakOffset[0] == 128 && waveform.peakOffset[1] == 255 && waveform.peakOffset[2] == 255 &&
+        Check(waveform.baseOffset[0] == 0 && waveform.baseOffset[1] == 0 && waveform.baseOffset[2] == 0 &&
+            waveform.peakOffset[0] == 0 && waveform.peakOffset[1] == 24 && waveform.peakOffset[2] == 48 &&
             waveform.globalScale == 3 && waveform.globalOffset == -0.3 && centroid.globalScale == 5 && centroid.globalOffset == 0,
-            "Original color offsets or response ranges changed.");
+            "Default color offsets or response ranges changed.");
         auto mapping = settings.profiles[1]; mapping.globalScale = 1;
         for(int c = 0; c < 3; ++c) { mapping.baseScale[c] = 0; mapping.peakScale[c] = 2; mapping.peakOffset[c] = 0; }
         const auto middle = audio::Map(mapping,0.25);
@@ -63,6 +63,9 @@ int wmain() {
         settings.enabled = TRUE; settings.mode = audio::SpectralCentroid;
         wcscpy_s(settings.deviceId,L"{endpoint-\x65e5\x672c}");
         settings.profiles[0].baseScale[1] = 0.375; settings.profiles[1].globalOffset = -0.125;
+        // Saved profiles must retain their offsets even when the defaults change.
+        settings.profiles[0].baseOffset[1] = 64; settings.profiles[0].baseOffset[2] = 128;
+        settings.profiles[0].peakOffset[0] = 128; settings.profiles[0].peakOffset[1] = settings.profiles[0].peakOffset[2] = 255;
         settings.responseSource = audio::BassEnergy; settings.speedEnabled = TRUE; settings.spawnEnabled = TRUE;
         settings.brightnessEnabled = FALSE; settings.colorEnabled = TRUE;
         settings.sensitivity = 6.5; settings.smoothing = 0.625;
