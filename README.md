@@ -2,6 +2,26 @@
 
 This project originally forked from: [http://zmatrix.sourceforge.net/](http://zmatrix.sourceforge.net/)
 
+## v2.0.0
+[Download version 2.0.0](https://github.com/payalord/ZMatrix/releases/download/v2.0.0/ZMatrixSetupNT_2_0_0.exe)
+* File: ZMatrixSetupNT_2_0_0.exe
+* SHA-256: `7a2883d3dc89b662bbe6bc348c781cccb21ef2ef22ed43a586ffcbd585799a47`
+### What's Changed
+- Improved multi-monitor support, including contributions from @latin-programmer in [#7](https://github.com/payalord/ZMatrix/pull/7).
+- Optimized desktop rendering with per-monitor windows and fixed a GDI resource leak.
+- Improved desktop icon layering, startup handling, and recovery after Explorer or display changes.
+- Replaced the Borland/VCL configuration dialogs with a native interface built with Visual Studio C++.
+- Added built-in Audio reaction for Windows playback audio, with independent controls for brightness, speed, stream generation, and color modulation.
+- Added automatic return to normal animation during silence.
+- Added adjustable blend strength, new wallpaper blending modes, and clearer mode names.
+- Added optional text glow with a live configuration preview.
+- Replaced audio autoplay in the About dialog with a play/stop button.
+- Added native offline help and updated documentation and project links.
+- Improved compatibility with older settings and added optional settings removal during uninstall.
+### Breaking Changes
+- The legacy Winamp visualization plugin is no longer included. Audio reaction is now built directly into ZMatrix and configured through its settings.
+Existing ZMatrix configuration files remain supported. Legacy Winamp audio mappings can be imported through the Audio reaction settings.
+
 ## v1.5.4
 [Download version 1.5.4](https://github.com/payalord/ZMatrix/releases/download/v1.5.4/ZMatrixSetupNT_1_5_4.exe)
 * File: ZMatrixSetupNT_1_5_4.exe
