@@ -6,6 +6,7 @@ This project originally forked from: [http://zmatrix.sourceforge.net/](http://zm
 [Download version 2.0.0](https://github.com/payalord/ZMatrix/releases/download/v2.0.0/ZMatrixSetupNT_2_0_0.exe)
 * File: ZMatrixSetupNT_2_0_0.exe
 * SHA-256: `7a2883d3dc89b662bbe6bc348c781cccb21ef2ef22ed43a586ffcbd585799a47`
+
 ### What's Changed
 - Improved multi-monitor support, including contributions from @latin-programmer in [#7](https://github.com/payalord/ZMatrix/pull/7).
 - Optimized desktop rendering with per-monitor windows and fixed a GDI resource leak.
@@ -18,6 +19,7 @@ This project originally forked from: [http://zmatrix.sourceforge.net/](http://zm
 - Replaced audio autoplay in the About dialog with a play/stop button.
 - Added native offline help and updated documentation and project links.
 - Improved compatibility with older settings and added optional settings removal during uninstall.
+
 ### Breaking Changes
 - The legacy Winamp visualization plugin is no longer included. Audio reaction is now built directly into ZMatrix and configured through its settings.
 Existing ZMatrix configuration files remain supported. Legacy Winamp audio mappings can be imported through the Audio reaction settings.
