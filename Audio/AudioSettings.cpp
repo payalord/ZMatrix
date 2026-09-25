@@ -23,6 +23,7 @@ Settings Defaults() {
     s.sensitivity = 4; s.smoothing = 0.5;
     s.brightnessEnabled = TRUE;
     s.brightnessStrength = 0.5; s.speedStrength = 0.35; s.spawnStrength = 0.5;
+    s.returnOnSilence = TRUE; s.silenceDelaySeconds = 5;
     return s;
 }
 static bool Range(double value, double low, double high) {
@@ -32,8 +33,9 @@ bool Valid(const Settings &s) {
     if((s.enabled != FALSE && s.enabled != TRUE) || s.mode >= ModeCount ||
        !wmemchr(s.deviceId, 0, _countof(s.deviceId)) || s.responseSource >= SourceCount ||
        !Range(s.sensitivity,0,20) || !Range(s.smoothing,0,1) ||
-       !Range(s.brightnessStrength,0,1) || !Range(s.speedStrength,0,1) || !Range(s.spawnStrength,0,1)) return false;
-    for(BOOL enabled : {s.brightnessEnabled,s.speedEnabled,s.spawnEnabled,s.colorEnabled})
+       !Range(s.brightnessStrength,0,1) || !Range(s.speedStrength,0,1) || !Range(s.spawnStrength,0,1) ||
+       s.silenceDelaySeconds < 1 || s.silenceDelaySeconds > 60) return false;
+    for(BOOL enabled : {s.brightnessEnabled,s.speedEnabled,s.spawnEnabled,s.colorEnabled,s.returnOnSilence})
         if(enabled != FALSE && enabled != TRUE) return false;
     for(const auto &m : s.profiles) {
         for(int c = 0; c < 3; ++c)
@@ -88,7 +90,7 @@ DWORD Load(const wchar_t *path, Settings &settings, bool legacy) {
         Settings next = legacy ? settings : Defaults();
         if(!legacy) {
             const auto version = Value(path,L"Audio",L"Version");
-            if(version != L"1" && version != L"2") return ERROR_INVALID_DATA;
+            if(version != L"1" && version != L"2" && version != L"3") return ERROR_INVALID_DATA;
             const auto enabled = Value(path,L"Audio",L"Enabled");
             const auto mode = Value(path,L"Audio",L"Mode");
             if((enabled != L"0" && enabled != L"1") || (mode != L"0" && mode != L"1")) return ERROR_INVALID_DATA;
@@ -113,6 +115,15 @@ DWORD Load(const wchar_t *path, Settings &settings, bool legacy) {
                     *switches[i] = value == L"1";
                 }
             }
+            if(version == L"3") {
+                const auto returnOnSilence = Value(path,L"Reaction",L"ReturnOnSilence");
+                double delay = 0;
+                if((returnOnSilence != L"0" && returnOnSilence != L"1") ||
+                   !Parse(Value(path,L"Reaction",L"SilenceDelaySeconds"),&delay,1,false) ||
+                   !Range(delay,1,60) || std::floor(delay) != delay) return ERROR_INVALID_DATA;
+                next.returnOnSilence = returnOnSilence == L"1";
+                next.silenceDelaySeconds = static_cast<UINT>(delay);
+            }
         }
         bool found = false;
         for(int mode = 0; mode < ModeCount; ++mode) {
@@ -135,12 +146,13 @@ DWORD Save(const wchar_t *path, const Settings &s) {
     if(!Valid(s)) return ERROR_INVALID_DATA;
     try {
         std::wostringstream out; out.imbue(std::locale::classic()); out << std::setprecision(17);
-        out << L"\xFEFF[Audio]\r\nVersion=2\r\nEnabled=" << s.enabled << L"\r\nMode=" << s.mode << L"\r\nDevice=" << s.deviceId << L"\r\n";
+        out << L"\xFEFF[Audio]\r\nVersion=3\r\nEnabled=" << s.enabled << L"\r\nMode=" << s.mode << L"\r\nDevice=" << s.deviceId << L"\r\n";
         out << L"\r\n[Reaction]\r\nSource=" << s.responseSource << L"\r\n";
         const double values[] = {s.sensitivity,s.smoothing,s.brightnessStrength,s.speedStrength,s.spawnStrength};
         const BOOL switches[] = {s.brightnessEnabled,s.speedEnabled,s.spawnEnabled,s.colorEnabled};
         for(int i = 0; i < 5; ++i) out << ReactionKeys[i] << L"=" << values[i] << L"\r\n";
         for(int i = 0; i < 4; ++i) out << SwitchKeys[i] << L"=" << switches[i] << L"\r\n";
+        out << L"ReturnOnSilence=" << s.returnOnSilence << L"\r\nSilenceDelaySeconds=" << s.silenceDelaySeconds << L"\r\n";
         for(int mode = 0; mode < ModeCount; ++mode) {
             const auto &m = s.profiles[mode];
             const double *fields[] = {m.baseScale,m.baseOffset,m.peakScale,m.peakOffset,&m.globalScale,&m.globalOffset};

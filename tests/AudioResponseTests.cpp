@@ -79,6 +79,70 @@ static void CheckWaveformPipeline() {
     settings.enabled = FALSE; Check(Neutral(feed(loud)),"Disabled audio retained calibrated colors.");
     settings.enabled = TRUE; same(feed(middle),beforeDisable);
 }
+static void CheckSilenceReturn() {
+    audio::SilenceDetector detector;
+    Check(detector.Update(0.00045,1000) == 0 && detector.Update(0,2000) == 0 &&
+        detector.Update(0.00045,3500) == 1.5,"Silence entry or threshold hysteresis failed.");
+    Check(detector.Update(0.0006,4000) == 0 && detector.Update(0.00045,9000) == 0,
+        "Sound failed to clear the continuous silence interval.");
+    detector.Update(0,10000); detector.Reset();
+    Check(detector.Update(0,50000) == 0,"A new capture session inherited old silence.");
+    // A brief sound between two slow render frames must restart the capture timer.
+    detector.Update(0,54900); detector.Update(0.1,54950); detector.Update(0,55000);
+    Check(detector.Update(0,55100) == 0.1,"Silence timing missed sound between rendered frames.");
+    const audio::Descriptors sound = {0.3,0.4,0.15,0};
+    for(UINT mode = 0; mode < audio::ModeCount; ++mode) for(UINT source = 0; source < audio::SourceCount; ++source)
+        for(unsigned influences = 0; influences < 16; ++influences) {
+            auto s = audio::Defaults(); s.enabled = s.returnOnSilence = TRUE;
+            s.mode = mode; s.responseSource = source; s.smoothing = 0.2;
+            s.brightnessEnabled = (influences & 1) != 0; s.speedEnabled = (influences & 2) != 0;
+            s.spawnEnabled = (influences & 4) != 0; s.colorEnabled = (influences & 8) != 0;
+            audio::Response response;
+            if(!influences) {
+                Check(!audio::RequiredAnalysis(s) && Neutral(response.Update(s,{},true,10,10)) && !response.WaitingForSound(),
+                    "Silence detection started capture without an active influence.");
+                continue;
+            }
+            Check((audio::RequiredAnalysis(s) & audio::AnalyzeLevel) != 0,"Silence detection lacks full-band level analysis.");
+            const auto active = Settle(response,s,sound);
+            response.Update(s,{},true,4.9,4.9);
+            Check(!response.WaitingForSound(),"A short pause activated silence bypass.");
+            const auto fading = response.Update(s,{},true,0.25,5.15);
+            Check(!response.WaitingForSound() && (!s.colorEnabled || !Neutral(fading)),"Silence bypass skipped its transition.");
+            Check(Neutral(response.Update(s,{},true,0.15,5.3)) && response.WaitingForSound() && s.enabled,
+                "Silence failed to restore every influence or changed the master switch.");
+            for(int i = 0; i < 10; ++i)
+                Check(Neutral(response.Update(s,{},true,60,65.3+60*i)),"Ordinary appearance drifted during prolonged silence.");
+            response.Update(s,sound,true,0.1,0);
+            Check(!response.WaitingForSound(),"Sound with no bass failed to leave silence bypass.");
+            const auto resumed = Settle(response,s,sound);
+            for(int c = 0; c < 3; ++c)
+                Check(std::abs(resumed.colors.scale[c]-active.colors.scale[c]) < 1e-8 &&
+                    std::abs(resumed.colors.offset[c]-active.colors.offset[c]) < 1e-8,"Audio colors did not recover after silence.");
+            Check(std::abs(resumed.speed-active.speed) < 1e-8 && std::abs(resumed.spawn-active.spawn) < 1e-8,"Motion did not recover after silence.");
+            response.Update(s,{},true,10,10); s.returnOnSilence = FALSE;
+            const auto bypassOff = response.Update(s,{},true,0.3,20);
+            Check(!response.WaitingForSound() && (!s.colorEnabled || !Neutral(bypassOff)),"Turning off silence return left the color mapping bypassed.");
+            s.returnOnSilence = TRUE; response.Update(s,{},true,10,10);
+            Check(Neutral(response.Update(s,sound,false,0.02,10)) && !response.WaitingForSound(),"Capture failure retained a waiting state.");
+            s.enabled = FALSE;
+            Check(Neutral(response.Update(s,sound,true,0.02,10)) && !response.WaitingForSound(),"Manual disable retained a waiting state.");
+        }
+    // Equivalent fade positions at different rendering refresh intervals.
+    auto s = audio::Defaults(); s.enabled = s.colorEnabled = s.returnOnSilence = TRUE; s.brightnessEnabled = FALSE;
+    audio::Response fast, slow;
+    fast.Update(s,{},true,4.9,4.9); slow.Update(s,{},true,4.9,4.9);
+    audio::Reaction a;
+    for(int i = 1; i <= 25; ++i) a = fast.Update(s,{},true,0.01,4.9+0.01*i);
+    const auto b = slow.Update(s,{},true,0.25,5.15);
+    Check(std::abs(a.colors.scale[0]-b.colors.scale[0]) < 1e-9,"Silence fade depends on render frequency.");
+    s.silenceDelaySeconds = 60; fast.Reset();
+    fast.Update(s,{},true,59,59); Check(!fast.WaitingForSound(),"A long delay was ignored.");
+    Check(Neutral(fast.Update(s,{},true,1.3,60.3)) && fast.WaitingForSound(),"A long delay never completed.");
+    s.silenceDelaySeconds = 1; s.sensitivity = 0; fast.Reset();
+    Check(Neutral(fast.Update(s,{},true,1.3,1.3)) && fast.WaitingForSound(),"A short delay never completed.");
+    fast.Update(s,sound,true,0.3,0); Check(!fast.WaitingForSound(),"Zero sensitivity prevented sound detection.");
+}
 int main() {
     try {
         auto settings = audio::Defaults();
@@ -129,8 +193,12 @@ int main() {
         settings = audio::Defaults(); settings.enabled = TRUE; settings.brightnessEnabled = FALSE; settings.colorEnabled = TRUE; settings.smoothing = 0;
         for(UINT mode = 0; mode < audio::ModeCount; ++mode) {
             settings.mode = mode; response.Reset();
-            Check(audio::RequiredAnalysis(settings) == static_cast<unsigned>(mode == audio::WaveformVariation ? audio::AnalyzeWaveform : audio::AnalyzeCentroid),
-                "Color mapping requested an unused analysis.");
+            const unsigned colorAnalysis = mode == audio::WaveformVariation ? audio::AnalyzeWaveform : audio::AnalyzeCentroid;
+            Check(audio::RequiredAnalysis(settings) == (colorAnalysis | audio::AnalyzeLevel),
+                "Default silence return lacks level analysis for color-only effects.");
+            settings.returnOnSilence = FALSE;
+            Check(audio::RequiredAnalysis(settings) == colorAnalysis,"Disabled silence return requested unused level analysis.");
+            settings.returnOnSilence = TRUE;
             for(const auto &signal : {sound,audio::Descriptors{}}) {
                 const auto mapped = response.Update(settings,signal,true,0.02);
                 const auto original = audio::Map(settings.profiles[mode],mode == audio::WaveformVariation ? signal.waveformVariation : signal.spectralCentroid);
@@ -140,7 +208,8 @@ int main() {
         settings.colorEnabled = FALSE;
         Check(Neutral(response.Update(settings,sound,true,0.02)),"Turning off the final effect left coefficients active.");
         CheckWaveformPipeline();
-        puts("PASS: Independent effects, time-based envelopes, silence/failure, old-profile PCM calibration and 20 simulated minutes without response drift.");
+        CheckSilenceReturn();
+        puts("PASS: Independent effects, envelopes, timed silence bypass/resume, old-profile PCM calibration and 20 simulated minutes without response drift.");
         return 0;
     } catch(const std::exception &error) { fprintf(stderr,"FAIL: %s\n",error.what()); return 1; }
 }

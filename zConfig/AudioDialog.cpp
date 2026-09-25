@@ -36,6 +36,10 @@ struct AudioEditor {
     void Populate(HWND window) {
         updating = true;
         CheckDlgButton(window,IDC_AUDIO_ENABLED,settings.enabled ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(window,IDC_AUDIO_SILENCE,settings.returnOnSilence ? BST_CHECKED : BST_UNCHECKED);
+        SetDlgItemInt(window,IDC_AUDIO_SILENCE_DELAY,settings.silenceDelaySeconds,FALSE);
+        EnableWindow(GetDlgItem(window,IDC_AUDIO_SILENCE_DELAY),settings.returnOnSilence);
+        EnableWindow(GetDlgItem(window,IDC_AUDIO_SILENCE_LABEL),settings.returnOnSilence);
         SendDlgItemMessageW(window,IDC_AUDIO_MODE,CB_SETCURSEL,settings.mode,0);
         SendDlgItemMessageW(window,IDC_AUDIO_SOURCE,CB_SETCURSEL,settings.responseSource,0);
         for(int i = 0; i < 4; ++i) CheckDlgButton(window,IDC_AUDIO_BRIGHTNESS+i,Switch(i) ? BST_CHECKED : BST_UNCHECKED);
@@ -110,9 +114,26 @@ struct AudioEditor {
         SendDlgItemMessageW(window,id+SLIDER_OFFSET,TBM_SETPOS,TRUE,static_cast<LPARAM>(std::lround(value)));
         return true;
     }
+    void ReadSilenceDelay(HWND window, bool validate) {
+        std::wistringstream in(WindowText(GetDlgItem(window,IDC_AUDIO_SILENCE_DELAY)));
+        in.imbue(std::locale::classic());
+        int value = 0;
+        const bool parsed = bool(in >> value); in >> std::ws;
+        if(!parsed || !in.eof() || value < 1 || value > 60) {
+            if(validate) {
+                SetFocus(GetDlgItem(window,IDC_AUDIO_SILENCE_DELAY));
+                throw Error{L"Enter a whole number of seconds from 1 to 60.",ERROR_INVALID_DATA};
+            }
+            return;
+        }
+        const UINT previous = settings.silenceDelaySeconds;
+        settings.silenceDelaySeconds = static_cast<UINT>(value);
+        try { Preview(); } catch(...) { settings.silenceDelaySeconds = previous; throw; }
+    }
     void Validate(HWND window) {
         for(int i = 0; i < 8; ++i) ReadNumber(window,i,true);
         for(int i = 0; i < 5; ++i) ReadNumber(window,i,true,true);
+        ReadSilenceDelay(window,true);
     }
     void Status(HWND window) {
         audio::Status status = {}; host.status(host.context,&status);
@@ -121,6 +142,8 @@ struct AudioEditor {
         else if(status.state == audio::Disabled) text = settings.enabled ?
             L"No active influence. Enable an effect and set its strength above zero." : L"Disabled. Ordinary ZMatrix appearance and motion are in use.";
         else if(status.state == audio::Starting) text = L"Opening the playback output...";
+        else if(status.state == audio::Capturing && status.waitingForSound)
+            text = L"Waiting for sound. Ordinary appearance is active.";
         else if(status.state == audio::Capturing) {
             text = L"Capturing output audio.";
             wchar_t value[80];
@@ -166,6 +189,7 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
         if(message == WM_INITDIALOG) {
             context = reinterpret_cast<AudioEditor *>(lparam);
             SetWindowLongPtrW(window,DWLP_USER,lparam); InitDialog(window);
+            SendDlgItemMessageW(window,IDC_AUDIO_SILENCE_DELAY,EM_SETLIMITTEXT,3,0);
             for(const auto label : {L"Waveform variation",L"Spectral centroid"})
                 SendDlgItemMessageW(window,IDC_AUDIO_MODE,CB_ADDSTRING,0,reinterpret_cast<LPARAM>(label));
             for(const auto label : {L"Audio level",L"Bass energy"})
@@ -200,6 +224,7 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
         const int id = LOWORD(wparam), code = HIWORD(wparam);
         if(id == IDCANCEL) { EndDialog(window,IDCANCEL); return TRUE; }
         if(id == IDOK) { context->Validate(window); EndDialog(window,IDOK); return TRUE; }
+        if(code == EN_CHANGE && id == IDC_AUDIO_SILENCE_DELAY) { context->ReadSilenceDelay(window,false); return TRUE; }
         if(code == EN_CHANGE && id >= IDC_AUDIO_NUMBER && id < IDC_AUDIO_NUMBER+8) { context->ReadNumber(window,id-IDC_AUDIO_NUMBER,false); return TRUE; }
         if(code == EN_CHANGE && id >= IDC_AUDIO_REACTION_NUMBER && id < IDC_AUDIO_REACTION_NUMBER+5) {
             context->ReadNumber(window,id-IDC_AUDIO_REACTION_NUMBER,false,true); return TRUE;
@@ -221,6 +246,8 @@ static INT_PTR CALLBACK AudioProcedure(HWND window, UINT message, WPARAM wparam,
             wcscpy_s(context->settings.deviceId,device.id.c_str());
         } else if(code == BN_CLICKED && id == IDC_AUDIO_ENABLED) {
             context->settings.enabled = IsDlgButtonChecked(window,id) == BST_CHECKED;
+        } else if(code == BN_CLICKED && id == IDC_AUDIO_SILENCE) {
+            context->settings.returnOnSilence = IsDlgButtonChecked(window,id) == BST_CHECKED;
         } else if(code == BN_CLICKED && id == IDC_AUDIO_RESET) {
             context->settings.profiles[context->settings.mode] = audio::Defaults().profiles[context->settings.mode];
         } else if(code == BN_CLICKED && id == IDC_AUDIO_REFRESH) { context->Devices(window); return TRUE; }

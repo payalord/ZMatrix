@@ -13,9 +13,12 @@ struct Reaction {
 class Response {
 public:
     void Reset();
-    Reaction Update(const Settings &settings, const Descriptors &signal, bool capturing, double seconds);
+    Reaction Update(const Settings &settings, const Descriptors &signal, bool capturing, double seconds, double silenceSeconds = 0);
+    bool WaitingForSound() const { return waiting_ && audioWeight_ == 0; }
 private:
     double level_ = 0, motion_ = 0, activity_ = 0, color_ = 0;
     UINT source_ = SourceCount, mode_ = ModeCount;
+    double audioWeight_ = 1;
+    bool waiting_ = false;
 };
 }

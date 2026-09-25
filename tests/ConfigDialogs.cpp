@@ -24,6 +24,7 @@ static unsigned refresh;
 static DWORD priority;
 static bool fontDialog, colorDialog;
 static bool testingAudio;
+static bool audioWaiting;
 static int audioCase, audioCommits;
 static audio::Settings audioCurrent, audioSaved;
 static void __stdcall GetAudio(void *, audio::Settings *out) { *out = audioCurrent; }
@@ -33,7 +34,9 @@ static DWORD __stdcall CommitAudio(void *, const audio::Settings *value) {
     if(audioCase == 3) return ERROR_ACCESS_DENIED;
     audioSaved = *value; return ERROR_SUCCESS;
 }
-static void __stdcall AudioStatus(void *, audio::Status *out) { *out = {audioCurrent.enabled ? audio::Capturing : audio::Disabled,S_OK,0.25}; }
+static void __stdcall AudioStatus(void *, audio::Status *out) {
+    *out = {audioCurrent.enabled ? audio::Capturing : audio::Disabled,S_OK,0.25,0,audioWaiting};
+}
 static const audio::HostApi audioHost = {sizeof(audio::HostApi),audio::HostVersion,nullptr,GetAudio,PreviewAudio,CommitAudio,AudioStatus};
 
 static void Capture(HWND window, const wchar_t *name) {
@@ -155,8 +158,28 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
             Check(testingAudio,"Unexpected audio editor.");
             CheckAudioOffsetSlider(window);
             Capture(window,L"audio-defaults");
+            Check(audioCurrent.returnOnSilence && audioCurrent.silenceDelaySeconds == 5 &&
+                IsDlgButtonChecked(window,IDC_AUDIO_SILENCE) == BST_CHECKED &&
+                IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_SILENCE_DELAY)),"Silence controls have incorrect defaults.");
             Click(window,IDC_AUDIO_ENABLED);
             Check(audioCurrent.enabled != FALSE,"Audio enable preview failed.");
+            Check(audioCurrent.returnOnSilence && IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_SILENCE_DELAY)),"Enabling audio lost default silence return.");
+            for(const auto bad : {L"0",L"61",L"-1",L"1.5",L"",L"bad"}) {
+                SetDlgItemTextW(window,IDC_AUDIO_SILENCE_DELAY,bad);
+                Check(audioCurrent.silenceDelaySeconds == 5,"Invalid silence delay was previewed.");
+            }
+            SetDlgItemTextW(window,IDC_AUDIO_SILENCE_DELAY,L"7");
+            Check(audioCurrent.silenceDelaySeconds == 7,"Silence delay did not preview.");
+            Click(window,IDC_AUDIO_SILENCE);
+            Check(!audioCurrent.returnOnSilence && audioCurrent.silenceDelaySeconds == 7 &&
+                !IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_SILENCE_DELAY)),"Disabling silence return lost its delay.");
+            Click(window,IDC_AUDIO_SILENCE);
+            audioWaiting = true; SendMessageW(window,WM_TIMER,1,0);
+            wchar_t status[256]; GetDlgItemTextW(window,IDC_AUDIO_STATUS,status,_countof(status));
+            Check(wcscmp(status,L"Waiting for sound. Ordinary appearance is active.") == 0 &&
+                IsDlgButtonChecked(window,IDC_AUDIO_ENABLED) == BST_CHECKED,"Waiting status changed the master checkbox or was not displayed.");
+            Capture(window,L"audio-waiting");
+            audioWaiting = false; SendMessageW(window,WM_TIMER,1,0);
             Check(audioCurrent.brightnessEnabled && !audioCurrent.speedEnabled && !audioCurrent.spawnEnabled && !audioCurrent.colorEnabled,
                 "New audio defaults must preserve the palette and leave motion opt-in.");
             Check(!IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_NUMBER)) && !IsWindowEnabled(GetDlgItem(window,IDC_AUDIO_RESET)) &&
@@ -217,11 +240,13 @@ static void CALLBACK Exercise(HWND window, UINT, UINT_PTR timer, DWORD) {
             Click(window,IDC_AUDIO_RESET);
             CheckAudioOffsetSlider(window);
             Check(audioCurrent.profiles[audio::SpectralCentroid].globalScale == 5 && audioCurrent.profiles[audio::SpectralCentroid].baseOffset[0] == 0 &&
+                audioCurrent.returnOnSilence && audioCurrent.silenceDelaySeconds == 7 &&
                 audioCurrent.sensitivity == 5.5 && audioCurrent.smoothing == 0.75 && audioCurrent.spawnStrength == 0.4 &&
                 audioCurrent.speedStrength == 0.625 && audioCurrent.responseSource == audio::BassEnergy &&
                 !audioCurrent.brightnessEnabled && !audioCurrent.speedEnabled && audioCurrent.spawnEnabled && audioCurrent.colorEnabled,
                 "Reset effect changed independent response settings.");
             Capture(window,L"audio");
+            Click(window,IDC_AUDIO_SILENCE);
             Click(window,audioCase == 0 ? IDCANCEL : IDOK);
         } else if(testingAudio && audioCase == 3) {
             bool expected = false;
@@ -324,9 +349,11 @@ int wmain(int argc,wchar_t **argv) {
             if(!accept) Check(priority==initialPriority && GetPriorityClass(GetCurrentProcess())==initialPriority,"Cancel did not restore process priority.");
         }
         testingAudio = true;
-        auto incompatibleHost = audioHost; incompatibleHost.version = 1;
-        Check(!configureWithAudio(matrix,refresh,priority,&incompatibleHost) && GetLastError() == ERROR_INVALID_PARAMETER,
-            "An incompatible settings ABI was accepted.");
+        for(DWORD version : {1u,2u}) {
+            auto incompatibleHost = audioHost; incompatibleHost.version = version;
+            Check(!configureWithAudio(matrix,refresh,priority,&incompatibleHost) && GetLastError() == ERROR_INVALID_PARAMETER,
+                "An incompatible settings ABI was accepted.");
+        }
         for(audioCase = 0; audioCase < 4; ++audioCase) {
             audioCurrent = audioSaved = audio::Defaults(); audioCommits = 0;
             const double initialOffsets[] = {0,-0.3,0.125,0};
@@ -339,6 +366,8 @@ int wmain(int argc,wchar_t **argv) {
             Check((audioSaved.enabled != FALSE) == (audioCase == 2),"Audio preview or Cancel unexpectedly persisted settings.");
             Check(audioCommits == (audioCase >= 2 ? 1 : 0),"Audio persisted before the parent accepted.");
             for(const auto &state : {audioCurrent,audioSaved}) {
+                Check((state.returnOnSilence != FALSE) == (audioCase != 2) && state.silenceDelaySeconds == (audioCase == 2 ? 7u : 5u),
+                    "Silence options did not follow nested OK/Cancel or save failure.");
                 Check(state.profiles[0].baseOffset[0] == (audioCase == 2 ? 0 : 7) && state.profiles[1].baseOffset[0] == (audioCase == 2 ? 0 : 11),
                     "Reset effect did not follow child/parent OK, Cancel or save failure.");
                 Check((state.spawnEnabled != FALSE) == (audioCase == 2) && (state.colorEnabled != FALSE) == (audioCase == 2) &&

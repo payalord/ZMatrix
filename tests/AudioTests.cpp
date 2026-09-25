@@ -44,6 +44,7 @@ int wmain() {
     try {
         auto settings = audio::Defaults();
         Check(!settings.enabled && settings.mode == audio::WaveformVariation && audio::Valid(settings),"Audio must default to disabled.");
+        Check(settings.returnOnSilence && settings.silenceDelaySeconds == 5,"Silence return must default to enabled with a five-second delay.");
         const auto &waveform = settings.profiles[audio::WaveformVariation];
         const auto &centroid = settings.profiles[audio::SpectralCentroid];
         for(int c = 0; c < 3; ++c)
@@ -66,6 +67,7 @@ int wmain() {
         settings.brightnessEnabled = FALSE; settings.colorEnabled = TRUE;
         settings.sensitivity = 6.5; settings.smoothing = 0.625;
         settings.brightnessStrength = 0.8; settings.speedStrength = 0.375; settings.spawnStrength = 0.125;
+        settings.returnOnSilence = TRUE; settings.silenceDelaySeconds = 17;
         Check(audio::Save(file.c_str(),settings) == 0,"Audio settings save failed.");
         auto loaded = audio::Defaults();
         Check(audio::Load(file.c_str(),loaded) == 0 && loaded.enabled && loaded.mode == audio::SpectralCentroid &&
@@ -78,15 +80,33 @@ int wmain() {
                 Check(before.baseScale[c] == after.baseScale[c] && before.baseOffset[c] == after.baseOffset[c] &&
                     before.peakScale[c] == after.peakScale[c] && before.peakOffset[c] == after.peakOffset[c],"Saved RGB mapping was replaced.");
         }
+        Check(loaded.returnOnSilence && loaded.silenceDelaySeconds == 17,"Silence settings did not round-trip.");
         Check(loaded.responseSource == audio::BassEnergy && loaded.speedEnabled && loaded.spawnEnabled && !loaded.brightnessEnabled &&
             loaded.colorEnabled && loaded.sensitivity == 6.5 && loaded.smoothing == 0.625 && loaded.brightnessStrength == 0.8 &&
             loaded.speedStrength == 0.375 && loaded.spawnStrength == 0.125,"Independent response settings did not round-trip.");
+        auto explicitlyDisabled = settings; explicitlyDisabled.returnOnSilence = FALSE;
+        Check(audio::Save(file.c_str(),explicitlyDisabled) == 0 && audio::Load(file.c_str(),loaded) == 0 &&
+            !loaded.returnOnSilence && loaded.silenceDelaySeconds == 17,"Saved silence opt-out was replaced by the default.");
+        Check(audio::Save(file.c_str(),settings) == 0 && audio::Load(file.c_str(),loaded) == 0,"Cannot restore enabled silence fixture.");
+        for(const wchar_t *key : {L"ReturnOnSilence",L"SilenceDelaySeconds"}) {
+            for(const wchar_t *bad : {L"",L"nan",L"-1",L"61",L"1.5",L"5junk"}) {
+                Check(audio::Save(file.c_str(),settings) == 0 && WritePrivateProfileStringW(L"Reaction",key,bad,file.c_str()),"Cannot create invalid silence fixture.");
+                Check(audio::Load(file.c_str(),loaded) == ERROR_INVALID_DATA && loaded.returnOnSilence && loaded.silenceDelaySeconds == 17,
+                    "Invalid silence settings were accepted or partially applied.");
+            }
+        }
+        Check(audio::Save(file.c_str(),settings) == 0 && WritePrivateProfileStringW(L"Audio",L"Version",L"2",file.c_str()) &&
+            WritePrivateProfileStringW(L"Reaction",L"ReturnOnSilence",nullptr,file.c_str()) &&
+            WritePrivateProfileStringW(L"Reaction",L"SilenceDelaySeconds",nullptr,file.c_str()),"Cannot create version 2 fixture.");
+        Check(audio::Load(file.c_str(),loaded) == 0 && loaded.returnOnSilence && loaded.silenceDelaySeconds == 5 &&
+            loaded.colorEnabled && loaded.speedEnabled && loaded.responseSource == audio::BassEnergy,"Version 2 migration changed existing behavior.");
         Check(WritePrivateProfileStringW(L"Audio",L"Version",L"1",file.c_str()) &&
             WritePrivateProfileStringW(L"Reaction",nullptr,nullptr,file.c_str()),"Cannot create version 1 fixture.");
         Check(audio::Load(file.c_str(),loaded) == 0 && loaded.enabled && loaded.colorEnabled && !loaded.brightnessEnabled &&
-            !loaded.speedEnabled && !loaded.spawnEnabled && loaded.smoothing == 0 && loaded.profiles[0].baseScale[1] == 0.375,
+            !loaded.speedEnabled && !loaded.spawnEnabled && loaded.smoothing == 0 && loaded.profiles[0].baseScale[1] == 0.375 &&
+            loaded.returnOnSilence && loaded.silenceDelaySeconds == 5,
             "Version 1 migration changed saved mappings or enabled new influences.");
-        Check(audio::Save(file.c_str(),settings) == 0,"Cannot restore version 2 fixture.");
+        Check(audio::Save(file.c_str(),settings) == 0,"Cannot restore version 3 fixture.");
         for(const auto bad : {L"nan",L"1.001",L"-0.1",L"0.5junk"}) {
             Check(WritePrivateProfileStringW(L"Reaction",L"SpeedStrength",bad,file.c_str()) != FALSE,"Cannot corrupt fixture.");
             const auto previous = loaded;
@@ -102,8 +122,10 @@ int wmain() {
         Check(blocked && audio::Load(file.c_str(),loaded) == 0 && !loaded.enabled,"Failed save damaged the existing configuration.");
         WriteFixture(file.c_str(),"[VU Modulate]\r\nBaseColorScales={0.5,1.25,2}\r\nGlobalOffset=-0,125\r\n[Frequency Modulate]\r\nGlobalScale=7.5\r\n");
         loaded = audio::Defaults();
+        loaded.returnOnSilence = TRUE; loaded.silenceDelaySeconds = 12;
         Check(audio::Load(file.c_str(),loaded,true) == 0 && loaded.profiles[0].baseScale[1] == 1.25 &&
-            loaded.profiles[1].globalScale == 7.5 && loaded.profiles[0].globalOffset == -0.125 && !loaded.enabled,"Legacy import failed or enabled capture.");
+            loaded.profiles[1].globalScale == 7.5 && loaded.profiles[0].globalOffset == -0.125 && !loaded.enabled &&
+            loaded.returnOnSilence && loaded.silenceDelaySeconds == 12,"Legacy import failed or changed capture/silence settings.");
         const auto imported = loaded;
         for(const auto bad : {"{1,2}","{1,2,3}junk","{1,2,11}","{1,nan,3}","{1,2,inf}"}) {
             WriteFixture(file.c_str(),(std::string("[VU Modulate]\r\nBaseColorScales=")+bad+"\r\n").c_str());
@@ -111,6 +133,12 @@ int wmain() {
         }
         auto invalid = settings; invalid.profiles[0].globalScale = std::numeric_limits<double>::quiet_NaN();
         Check(!audio::Valid(invalid) && audio::Save(file.c_str(),invalid) == ERROR_INVALID_DATA,"NaN settings accepted.");
+        invalid = settings; invalid.returnOnSilence = 2;
+        Check(!audio::Valid(invalid),"Invalid silence switch accepted.");
+        invalid = settings; invalid.silenceDelaySeconds = 0;
+        Check(!audio::Valid(invalid),"Zero silence delay accepted.");
+        invalid.silenceDelaySeconds = 61;
+        Check(!audio::Valid(invalid),"Excessive silence delay accepted.");
         // Zero-crossing regression: reducing amplitude must reduce the response at every frequency.
         for(unsigned rate : {8000u,22050u,44100u,48000u,96000u,192000u}) for(unsigned channels : {1u,2u,6u}) {
             for(double frequency : {80.0,1000.0,3000.0,8000.0}) {

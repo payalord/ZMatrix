@@ -8,6 +8,14 @@
 #include <cstdint>
 
 namespace audio {
+double SilenceDetector::Update(double level, ULONGLONG now) {
+    // Roughly -70 dBFS to enter silence, -64 dBFS to leave it. The gap prevents
+    // noise around the threshold from repeatedly restarting the delay.
+    if(level >= 0.0006) quiet_ = false;
+    else if(level <= 0.0003 && !quiet_) { quiet_ = true; since_ = now; }
+    if(now < since_) since_ = now;
+    return quiet_ ? (now-since_)/1000.0 : 0;
+}
 bool PcmFormat::Read(const WAVEFORMATEX &f) {
     unsigned tag = f.wFormatTag, valid = f.wBitsPerSample;
     if(tag == WAVE_FORMAT_EXTENSIBLE) {

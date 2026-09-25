@@ -10,6 +10,7 @@ unsigned RequiredAnalysis(const Settings &s) {
        (s.spawnEnabled && s.spawnStrength > 0))
         mask |= AnalyzeLevel | (s.responseSource == BassEnergy ? AnalyzeBass : 0);
     if(s.colorEnabled) mask |= s.mode == WaveformVariation ? AnalyzeWaveform : AnalyzeCentroid;
+    if(mask && s.returnOnSilence) mask |= AnalyzeLevel;
     return mask;
 }
 double ResponseLevel(const Settings &s, const Descriptors &signal) {
@@ -20,8 +21,11 @@ static double Follow(double current, double target, double seconds, double attac
     const double value = time > 0 ? target+(current-target)*std::exp(-seconds/time) : target;
     return std::abs(value-target) < 0.00001 ? target : value;
 }
-void Response::Reset() { level_ = motion_ = activity_ = color_ = 0; source_ = SourceCount; mode_ = ModeCount; }
-Reaction Response::Update(const Settings &s, const Descriptors &signal, bool capturing, double seconds) {
+void Response::Reset() {
+    level_ = motion_ = activity_ = color_ = 0; source_ = SourceCount; mode_ = ModeCount;
+    audioWeight_ = 1; waiting_ = false;
+}
+Reaction Response::Update(const Settings &s, const Descriptors &signal, bool capturing, double seconds, double silenceSeconds) {
     Reaction result;
     if(!capturing || !RequiredAnalysis(s)) { Reset(); return result; }
     seconds = std::max(seconds,0.0);
@@ -51,6 +55,22 @@ Reaction Response::Update(const Settings &s, const Descriptors &signal, bool cap
     }
     if(s.speedEnabled) result.speed = 1+s.speedStrength*activity_*motion_;
     if(s.spawnEnabled) result.spawn = 1+s.spawnStrength*activity_*(2*motion_-1);
+    waiting_ = s.returnOnSilence && silenceSeconds >= s.silenceDelaySeconds;
+    // Blend coefficients, not pixels. Only elapsed time after the delay belongs
+    // to the fade; short pauses must leave the existing reaction unchanged.
+    const double elapsed = waiting_ ? std::min(seconds,silenceSeconds-s.silenceDelaySeconds) : seconds;
+    audioWeight_ = std::clamp(audioWeight_+(waiting_ ? -elapsed : elapsed)/0.3,0.0,1.0);
+    if(audioWeight_ < 1e-9) audioWeight_ = 0;
+    if(audioWeight_ > 1-1e-9) audioWeight_ = 1;
+    if(audioWeight_ == 0) return Reaction{};
+    if(audioWeight_ < 1) {
+        for(int c = 0; c < 3; ++c) {
+            result.colors.scale[c] = 1+audioWeight_*(result.colors.scale[c]-1);
+            result.colors.offset[c] *= audioWeight_;
+        }
+        result.speed = 1+audioWeight_*(result.speed-1);
+        result.spawn = 1+audioWeight_*(result.spawn-1);
+    }
     return result;
 }
 }

@@ -42,9 +42,9 @@ HRESULT PlaybackDevices(std::vector<Device> &devices) {
     return S_OK;
 }
 Capture::~Capture() { Stop(); }
-void Capture::Publish(State state, HRESULT error, Descriptors signal) {
+void Capture::Publish(State state, HRESULT error, Descriptors signal, double silenceSeconds) {
     std::lock_guard<std::mutex> lock(mutex_);
-    snapshot_ = {state,error,signal,GetTickCount64()};
+    snapshot_ = {state,error,signal,GetTickCount64(),silenceSeconds};
 }
 Snapshot Capture::Read() {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -125,21 +125,25 @@ HRESULT Capture::Session(const std::wstring &id) {
     if(FAILED(hr)) return hr;
     ComPtr<IAudioCaptureClient> capture;
     hr = client->GetService(IID_PPV_ARGS(&capture)); if(FAILED(hr)) return hr;
-    Analyzer analyzer(format,mask_.load());
+    unsigned analysisMask = mask_.load();
+    Analyzer analyzer(format,analysisMask);
+    SilenceDetector silence;
     hr = client->Start(); if(FAILED(hr)) return hr;
     struct StopClient { IAudioClient *p; ~StopClient() { p->Stop(); } } stopClient{client.Get()};
     Publish(Capturing,S_OK);
     ULONGLONG lastPacket = GetTickCount64(), lastAnalysis = 0, lastDeviceCheck = lastPacket;
     bool empty = false;
     while(!Wait(10)) {
-        analyzer.SetMask(mask_.load());
+        const unsigned nextMask = mask_.load();
+        if((nextMask ^ analysisMask) & AnalyzeLevel) silence.Reset();
+        analysisMask = nextMask; analyzer.SetMask(analysisMask);
         UINT32 frames = 0;
         for(;;) {
             hr = capture->GetNextPacketSize(&frames); if(FAILED(hr)) return hr;
             if(!frames || Wait(0)) break;
             BYTE *data = nullptr; DWORD flags = 0;
             hr = capture->GetBuffer(&data,&frames,&flags,nullptr,nullptr); if(FAILED(hr)) return hr;
-            if(flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) analyzer.Reset();
+            if(flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) { analyzer.Reset(); silence.Reset(); }
             analyzer.Push(data,frames,(flags & AUDCLNT_BUFFERFLAGS_SILENT) != 0);
             hr = capture->ReleaseBuffer(frames); if(FAILED(hr)) return hr;
             lastPacket = GetTickCount64(); empty = false;
@@ -147,7 +151,10 @@ HRESULT Capture::Session(const std::wstring &id) {
         const ULONGLONG now = GetTickCount64();
         if(now-lastPacket > 200 && !empty) { analyzer.Reset(); empty = true; }
         if(now-lastAnalysis >= 50) {
-            Publish(Capturing,S_OK,empty ? Descriptors{} : analyzer.Analyze());
+            // A suspended or stalled worker cannot establish continuous silence.
+            if(now-lastAnalysis > 1000) silence.Reset();
+            const auto signal = empty ? Descriptors{} : analyzer.Analyze();
+            Publish(Capturing,S_OK,signal,(analysisMask & AnalyzeLevel) ? silence.Update(signal.level,now) : 0);
             lastAnalysis = now;
         }
         if(now-lastDeviceCheck >= 1000) {

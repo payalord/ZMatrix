@@ -15,6 +15,7 @@ struct Snapshot {
     HRESULT error = S_OK;
     Descriptors signal;
     ULONGLONG updated = 0;
+    double silenceSeconds = 0;
 };
 class Capture {
 public:
@@ -29,7 +30,7 @@ private:
     HANDLE stop_ = nullptr;
     std::thread thread_;
     std::atomic<unsigned> mask_{AnalyzeLegacy};
-    void Publish(State state, HRESULT error, Descriptors signal = {});
+    void Publish(State state, HRESULT error, Descriptors signal = {}, double silenceSeconds = 0);
     void Run(std::wstring deviceId);
     HRESULT Session(const std::wstring &deviceId);
     bool Wait(DWORD milliseconds);

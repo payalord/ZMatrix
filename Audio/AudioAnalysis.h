@@ -19,6 +19,15 @@ struct PcmFormat {
 // waveformVariation uses signed differences at 44.1 kHz reference spacing,
 // followed by a fixed 0..1 curve calibrated for the existing color mappings.
 struct Descriptors { double waveformVariation = 0, spectralCentroid = 0, level = 0, bass = 0; };
+// Capture-clock silence detection, independent of rendering and user sensitivity.
+class SilenceDetector {
+public:
+    void Reset() { quiet_ = false; since_ = 0; }
+    double Update(double level, ULONGLONG now);
+private:
+    bool quiet_ = false;
+    ULONGLONG since_ = 0;
+};
 enum AnalysisMask { AnalyzeWaveform = 1, AnalyzeCentroid = 2, AnalyzeLevel = 4, AnalyzeBass = 8,
     AnalyzeLegacy = AnalyzeWaveform | AnalyzeCentroid, AnalyzeAll = AnalyzeLegacy | AnalyzeLevel | AnalyzeBass };
 class Analyzer {

@@ -97,6 +97,22 @@ array or FFT for this effect. Spectral centroid additionally uses a reused
 analyses do not run, and unneeded buffers are released when the mask changes.
 Capture stops when no influence is active. No PCM is written to disk.
 
+Return to normal during silence adds full-band RMS analysis even for color-only
+setups. The capture worker measures continuous silence with GetTickCount64 and
+publishes its duration, so slow or paused rendering cannot miss intermediate
+sound. SilenceDetector enters below RMS 0.0003 (about -70 dBFS), exits at 0.0006
+(about -64 dBFS), and keeps its state between those thresholds. Device restarts,
+PCM discontinuities, capture gaps over a second and changes to level-analysis
+availability reset the timer.
+No active influences means no capture, even if silence return is enabled.
+
+After the configured delay, AudioResponse blends its final RGB coefficients and
+motion multipliers to identity over 0.3 seconds; resumed sound or disabling the
+option reverses the transition. Only time past the delay contributes to the
+fade. Full bypass produces exact identity values and a waiting status; it never
+changes the master enable setting. Analysis and capture continue while waiting.
+This adds scalar state and no new sample or rendering buffers.
+
 The engine keeps two fractional budgets for motion: virtual update ticks and
 new stream births. Speed is limited to 1..2, birth rate to 0..2. Births are
 scheduled once per real frame, independently of the virtual tick count, and
@@ -104,11 +120,14 @@ never exceed Maximum streams. Every intermediate tick is drawn to preserve
 special strings and cleanup. There are no new rendering surfaces or per-stream
 allocations. Normal multipliers retain the original single-update behavior.
 
-Audio.cfg version 2 stores each influence and its amount separately. Version 1
+Audio.cfg version 3 adds ReturnOnSilence and SilenceDelaySeconds under Reaction.
+Silence return defaults to enabled with a 5-second delay, including when loading
+versions 1 and 2. Version 3 preserves the user's saved choice.
+Version 2 stores each influence and its amount separately. Version 1
 loads with only Color modulation enabled and no smoothing, preserving saved
 parameters. The corrected waveform calculation applies to every settings
 version; exact reproduction of the old Winamp waveform response is not retained.
-The executable/Config.dll host contract is version 2;
+The executable/Config.dll host contract is version 3;
 reject other versions before copying Settings or Status structures. The five
 original Config exports and all existing COM interface vtables are unchanged.
 
@@ -119,6 +138,9 @@ test links AudioSettings.cpp, AudioAnalysis.cpp and AudioResponse.cpp and covers
 the original profile over repeated PCM sequences; runtime tests also need
 AudioAnalysis.cpp, AudioCapture.cpp and AudioRuntime.cpp. Keep test output
 outside source directories. AudioCaptureSmoke's test tone is explicitly opt-in.
+AudioSilenceRuntimeTests substitutes capture data to verify waiting/resume and
+the real engine without depending on ambient playback; link it with
+AudioRuntime.cpp, AudioSettings.cpp and AudioResponse.cpp, omitting AudioCapture.cpp.
 
 ## Documentation and historical material
 

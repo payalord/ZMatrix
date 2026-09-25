@@ -171,13 +171,35 @@ avoid abrupt speed jumps; 0% gives its fastest response.
 
 After sustained silence, brightness and motion gradually return to their
 ordinary values. The older Color modulation mapping retains its Base behavior
-in silence. Changes affect newly drawn characters; existing trails keep their
-pixels until redrawn or cleared.
+in silence unless Return to normal during silence is enabled. Changes affect
+newly drawn characters; existing trails keep their pixels until redrawn or cleared.
 
 For a new configuration, audio reaction is disabled. Brightness is the only
 influence selected when it is first enabled. Speed, New streams and Color
 modulation are opt-in. Faster motion and more streams add drawing work; modest
 strengths are usually more suitable for a desktop background.
+
+### Returning to normal during silence
+
+**Return to normal during silence** temporarily removes all audio influences
+after **Silence delay (seconds)** of continuous silence. It is enabled by
+default, so turning on Enable audio reaction also activates this behavior.
+The delay defaults to 5 seconds and accepts whole numbers from 1 to 60.
+You can turn this option off; your saved choice is preserved.
+
+The transition to ordinary colors, brightness, speed and stream creation takes
+about 0.3 seconds. Enable audio reaction stays checked. Capture continues, and
+the selected effects return over about 0.3 seconds when sound resumes, without
+waiting for the silence delay again. The status reads "Waiting for sound.
+Ordinary appearance is active." while audio influences are fully bypassed.
+
+Silence is measured from all sound on the selected playback output, including
+system sounds, independently of Source and Sensitivity. A low fixed threshold
+and a small gap between the silence and sound thresholds prevent noise from
+repeatedly switching the effect. Short pauses do not activate the bypass.
+Existing trails retain their colors until redrawn or cleared; this option does
+not restart the animation or repaint the entire desktop. Reset effect leaves
+the silence option and delay unchanged.
 
 ### Color modulation
 
@@ -242,7 +264,8 @@ for compatibility; current playback capture is built into ZMatrix.
 Existing Audio.cfg version 1 files retain their saved color mappings when
 loaded: Color modulation is selected, the three new influences are off, and
 Smoothness is 0%. The corrected waveform analysis still applies. They are saved
-in version 2 format when settings are accepted.
+in version 3 format when settings are accepted. Version 1 and 2 configurations
+load with Return to normal during silence on and a 5-second delay.
 
 ## Saving, loading and resetting settings
 
