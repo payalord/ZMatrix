@@ -4,9 +4,9 @@
 ;#define UPGRADE
 ;#define WIN9X
 
-#define MAJOR_VER "1"
-#define MINOR_VER "5"
-#define RELEASE_VER "4"
+#define MAJOR_VER "2"
+#define MINOR_VER "0"
+#define RELEASE_VER "0"
 
 
 [Setup]
@@ -18,6 +18,7 @@ AppPublisherURL=https://payalord.github.io/ZMatrix/
 AppSupportURL=https://github.com/payalord/ZMatrix/issues
 AppUpdatesURL=https://payalord.github.io/ZMatrix/
 AppVersion={#MAJOR_VER}.{#MINOR_VER}.{#RELEASE_VER}
+VersionInfoVersion={#MAJOR_VER}.{#MINOR_VER}.{#RELEASE_VER}.0
 DefaultDirName={pf}\ZMatrix
 DefaultGroupName=ZMatrix
 AllowNoIcons=yes
