@@ -199,6 +199,55 @@ int wmain(int argc, wchar_t **argv)
                 Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0 && refresh==41,"Failed save modified the old CFG.");
             }
             SetValues(matrix.ptr); refresh=41; priority=NORMAL_PRIORITY_CLASS;
+            for(bool unicode : {false,true})
+            {
+                TemporaryFile temp; temp.path=temp.directory+L"\\legacy-probability.cfg";
+                if(unicode) {
+                    FILE *file=nullptr; _wfopen_s(&file,temp.path.c_str(),L"wb");
+                    Check(file!=nullptr,"Cannot create UTF-16 probability fixture.");
+                    const wchar_t bom=0xfeff;
+                    fwrite(&bom,sizeof(bom),1,file); fclose(file);
+                }
+                SetValues(matrix.ptr);
+                Check(save(matrix.ptr,41,priority,temp.path.c_str())!=0,"Cannot save probability fixture.");
+                struct ProbabilityCase { const wchar_t *text; float expected; };
+                const ProbabilityCase cases[] = {
+                    {L"0.25",0.25f}, {L"0,25",0.25f}, {L" 0,125 ",0.125f},
+                    {L"+2,5E-1",0.25f}, {L"1e-3",0.001f}, {L"0,1234567",0.1234567f},
+                    {L"0",0}, {L"1",1}, {L"-0,25",0}, {L"1,25",1},
+                    {L"",0.625f}, {L"invalid",0.625f}, {L"0,25junk",0.625f},
+                    {L"0.25junk",0.625f}, {L"0,25.0",0.625f}, {L"0,2,5",0.625f},
+                    {L"0.25.0",0.625f}, {L"0 25",0.625f}, {L"1e",0.625f},
+                    {L"nan",0.625f}, {L"inf",0.625f}, {L"1e1000",0.625f}, {nullptr,0.625f}
+                };
+                for(const auto &test : cases) {
+                    Check(WritePrivateProfileStringW(L"General",L"SpecialStringStreamProbability",test.text,temp.path.c_str())!=FALSE,
+                        "Cannot write probability case.");
+                    matrix.ptr->SetSpecialStringStreamProbability(0.625f);
+                    Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0,"Cannot load probability fixture.");
+                    if(matrix.ptr->GetSpecialStringStreamProbability()!=test.expected) {
+                        fwprintf(stderr,L"Probability case: %s (%s CFG)\n",test.text ? test.text : L"<missing>",unicode ? L"UTF-16" : L"ANSI");
+                        Check(false,"Legacy decimal probability was misread or malformed input changed the fallback.");
+                    }
+                }
+                Check(WritePrivateProfileStringW(L"General",L"SpecialStringStreamProbability",L"0,25",temp.path.c_str())!=FALSE,
+                    "Cannot restore comma-decimal fixture.");
+                Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0,"Cannot reload comma-decimal fixture.");
+                wchar_t stored[64];
+                GetPrivateProfileStringW(L"General",L"SpecialStringStreamProbability",L"",stored,64,temp.path.c_str());
+                Check(wcscmp(stored,L"0,25")==0,"Loading rewrote the legacy settings file.");
+                Check(save(matrix.ptr,refresh,priority,temp.path.c_str())!=0,"Cannot normalize probability on save.");
+                GetPrivateProfileStringW(L"General",L"SpecialStringStreamProbability",L"",stored,64,temp.path.c_str());
+                Check(wcscmp(stored,L"0.25")==0,"Probability was not saved with a decimal point.");
+                matrix.ptr->SetSpecialStringStreamProbability(0.75f);
+                Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0 && matrix.ptr->GetSpecialStringStreamProbability()==0.25f,
+                    "Normalized probability did not round trip.");
+                FILE *file=nullptr; _wfopen_s(&file,temp.path.c_str(),L"rb");
+                Check(file!=nullptr,"Cannot inspect saved probability encoding.");
+                const int first=fgetc(file), second=fgetc(file); fclose(file);
+                Check((first==0xff && second==0xfe)==unicode,"Probability normalization changed CFG encoding.");
+            }
+            SetValues(matrix.ptr); refresh=41; priority=NORMAL_PRIORITY_CLASS;
             {
                 TemporaryFile temp; temp.path=temp.directory+L"\\blend-modes.cfg";
                 const wchar_t *blendNames[] = {L"blendmodeXOR",L"blendmodeAND",L"blendmodeOR",L"blendmodeShading",L"blendmodeScreen",L"blendmodeMultiply"};
@@ -254,7 +303,7 @@ int wmain(int argc, wchar_t **argv)
                 Check(load(matrix.ptr,refresh,priority,temp.path.c_str())!=0,"Cannot load empty text sets.");
                 Check(matrix.ptr->GetNumCharsInSet()==0 && matrix.ptr->GetNumSpecialStringsInSet()==0,"Empty text sets were not restored.");
             }
-            puts("PASS: Config exports/resources; all settings and Unicode paths; ANSI/UTF-16 CFG; unknown keys; empty sets; failed I/O.");
+            puts("PASS: Config exports/resources; all settings and Unicode paths; ANSI/UTF-16 CFG; legacy decimal probabilities; unknown keys; empty sets; failed I/O.");
         }
         else puts("Config.dll tests not requested (--engine-only).");
     }

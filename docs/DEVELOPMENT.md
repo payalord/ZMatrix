@@ -66,6 +66,15 @@ on acceptance; Cancel restores animation and audio previews. Animation CFGs
 and Audio.cfg are separate formats. Legacy Winamp names remain only for
 configuration compatibility, not as playback dependencies.
 
+Animation CFG compatibility remains at format 1.0. SpecialStringStreamProbability
+accepts a decimal point or a single decimal comma, including scientific notation,
+independently of the current locale. The complete value must parse and be finite;
+missing or malformed values retain the current probability. Valid values still
+clamp to 0..1. Loading never rewrites the file; the existing atomic save writes
+the probability with a decimal point and preserves ANSI/UTF-16 encoding.
+ConfigCompatibility covers both encodings, legacy decimal notation, invalid
+suffixes/separators and normalization on save.
+
 ## Audio analysis and response
 
 `AudioResponse` selects the analysis needed by active influences and smooths

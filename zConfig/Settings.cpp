@@ -199,10 +199,18 @@ Settings Load(const std::wstring &file, const Settings &defaults) {
     s.monotonous = p.Number(L"General", L"MonotonousCleanupEnabled", s.monotonous) != 0;
     s.randomized = p.Number(L"General", L"RandomizedCleanupEnabled", s.randomized) != 0;
     s.priority = Value(p.Read(L"General", L"PriorityClass", L"IDLE_PRIORITY_CLASS"), Priorities);
-    std::wistringstream probability(p.Read(L"General", L"SpecialStringStreamProbability", L""));
+    auto probabilityText = p.Read(L"General", L"SpecialStringStreamProbability", L"");
+    // Legacy Borland scalar values may use a decimal comma. Do not accept
+    // mixed separators or partially parsed values such as "0,25junk".
+    if(probabilityText.find(L'.') == std::wstring::npos && std::count(probabilityText.begin(), probabilityText.end(), L',') == 1)
+        std::replace(probabilityText.begin(), probabilityText.end(), L',', L'.');
+    std::wistringstream probability(probabilityText);
     probability.imbue(std::locale::classic());
-    float parsed;
-    if(probability >> parsed && std::isfinite(parsed)) s.probability = std::max(0.0f, std::min(parsed, 1.0f));
+    float parsed = 0;
+    if(probability >> parsed && std::isfinite(parsed)) {
+        probability >> std::ws;
+        if(probability.eof()) s.probability = std::max(0.0f, std::min(parsed, 1.0f));
+    }
     s.font = ReadFont(p, L"Text"); s.specialFont = ReadFont(p, L"SpecialText");
     s.characters = ParseCharacters(p.Read(L"Text", L"CharSet", L"*"));
     s.strings = ParseStrings(p.Read(L"SpecialText", L"Strings", L"The matrix has you"), L';');

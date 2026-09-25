@@ -295,6 +295,12 @@ Animation CFGs support legacy ANSI and UTF-16 little-endian formats. Use the
 application to edit them; changing them to UTF-8 is not supported by the legacy
 CFG reader. The documentation files themselves use UTF-8.
 
+Older animation and screensaver CFGs load directly without an installer
+conversion. Special-string probability accepts either a decimal point or the
+decimal comma used by some older configurations (for example, 0,25 means 25%).
+Loading leaves the file unchanged; saving writes this value with a decimal
+point while preserving the file's existing ANSI or UTF-16 encoding.
+
 ## Automatic startup
 
 Auto-Start Options controls startup shortcuts for the current user and for all
